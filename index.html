@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IEP 會議意見回饋系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip & FileSaver for Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f1f5f9;
+        }
+        .font-black { font-weight: 900 !important; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .no-print { display: block; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-container { width: 100% !important; border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+            body { background-color: white; }
+            .page-break { page-break-before: always; }
+        }
+
+        /* 自訂樣式 */
+        .custom-checkbox:checked + div, .custom-radio:checked + div {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            font-weight: 900;
+        }
+        /* 學生端綠色主題 */
+        .student-theme .custom-checkbox:checked + div, .student-theme .custom-radio:checked + div {
+            background-color: #f0fdf4;
+            border-color: #22c55e;
+            color: #15803d;
+        }
+        .recording-pulse { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-900 overflow-x-hidden font-black">
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyAWhG66Pab1Y3ZZIXmKyp_UFnl9OVaqI9Q",
+            authDomain: "feedback-c076d.firebaseapp.com",
+            projectId: "feedback-c076d",
+            storageBucket: "feedback-c076d.firebasestorage.app",
+            messagingSenderId: "282088185232",
+            appId: "1:282088185232:web:7d6212ed82fb8d75db6715"
+        };
+
+        const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        
+        try {
+            const app = initializeApp(config);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'iep-feedback-final-v2'; 
+            window.IEP_FB = { auth, db, appId, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
+        } catch (e) { console.error("Firebase Init Error", e); }
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+        // --- Helper: Generate Word HTML Content ---
+        const generateWordContent = (s) => {
+            const teacherDate = s.teacherFeedback?.submittedAt ? new Date(s.teacherFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
+            const studentDate = s.studentFeedback?.submittedAt ? new Date(s.studentFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
+
+            return `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>${s.name} - IEP 回饋單</title>
+                <style>
+                    body { font-family: 'BiauKai', 'Microsoft JhengHei', sans-serif; }
+                    h1 { text-align: center; color: #1e293b; }
+                    h2 { background-color: #f1f5f9; padding: 5px; border-left: 5px solid #3b82f6; color: #1e293b; margin-top: 20px; }
+                    h3 { color: #475569; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-top: 15px; }
+                    .info { margin-bottom: 20px; border: 1px solid #cbd5e1; padding: 10px; }
+                    .content { margin-left: 10px; }
+                    .tag { font-size: 0.8em; color: #64748b; }
+                </style>
+                </head>
+                <body>
+                    <h1>IEP 會議意見回饋調查表</h1>
+                    <div class="info">
+                        <p><strong>學生姓名：</strong>${s.name}</p>
+                        <p><strong>個管老師：</strong>${s.manager}</p>
+                        <p><strong>列印時間：</strong>${new Date().toLocaleString('zh-TW')}</p>
+                    </div>
+
+                    <h2>一、導師意見回饋 <span class="tag">(填寫時間: ${teacherDate})</span></h2>
+                    ${s.teacherFeedback ? `
+                        <div class="content">
+                            <h3>(一) 學習進步情形</h3>
+                            <p>${s.teacherFeedback.q1_progress || ''} ${s.teacherFeedback.q1_other ? `(${s.teacherFeedback.q1_other})` : ''}</p>
+                            
+                            <h3>(二) 最大的幫助</h3>
+                            <p>${(s.teacherFeedback.q2_help || []).join('、')} ${s.teacherFeedback.q2_other ? `、${s.teacherFeedback.q2_other}` : ''}</p>
+                            
+                            <h3>(三) 其他困擾問題</h3>
+                            <p>${s.teacherFeedback.q3_hasIssue === 'yes' ? `有：${s.teacherFeedback.q3_desc}` : '無'}</p>
+                            
+                            <h3>(四) 補充說明</h3>
+                            <p>${s.teacherFeedback.q4_comment || '無'}</p>
+                        </div>
+                    ` : '<p style="color:red">尚未填寫</p>'}
+
+                    <h2>二、學生自我評估 <span class="tag">(填寫時間: ${studentDate})</span></h2>
+                    ${s.studentFeedback ? `
+                        <div class="content">
+                            <h3>1. 覺得資源班的幫助 (程度: ${s.studentFeedback.q1_level || '-'})</h3>
+                            <p>項目：${(s.studentFeedback.q1 || []).join('、')} ${s.studentFeedback.q1_other ? `、${s.studentFeedback.q1_other}` : ''}</p>
+                            
+                            <h3>2. 覺得有趣有收穫的課</h3>
+                            <p>${(s.studentFeedback.q2 || []).join('、')} ${s.studentFeedback.q2_other ? `、${s.studentFeedback.q2_other}` : ''}</p>
+                            
+                            <h3>3. 喜歡來資源班上課嗎？ (程度: ${s.studentFeedback.q3_level || '-'})</h3>
+                            ${s.studentFeedback.q3_like?.length > 0 ? `<p>喜歡的原因：${s.studentFeedback.q3_like.join('、')} ${s.studentFeedback.q3_like_other}</p>` : ''}
+                            ${s.studentFeedback.q3_neutral_text ? `<p>補充說明：${s.studentFeedback.q3_neutral_text}</p>` : ''}
+                            ${s.studentFeedback.q3_dislike_text ? `<p>不喜歡的原因：${s.studentFeedback.q3_dislike_text}</p>` : ''}
+                            
+                            <h3>4. 自我期許與建議</h3>
+                            <p>給自己：${s.studentFeedback.self_encourage || '無'}</p>
+                            <p>給老師：${s.studentFeedback.teacher_words || '無'}</p>
+                        </div>
+                    ` : '<p style="color:red">尚未填寫</p>'}
+                </body></html>
+            `;
+        };
+
+        const downloadSingleDoc = (student) => {
+            const content = generateWordContent(student);
+            const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+            window.saveAs(blob, `${student.name}_IEP回饋表.doc`);
+        };
+
+        const downloadAllZip = async (students) => {
+            const zip = new JSZip();
+            students.forEach(s => {
+                const content = generateWordContent(s);
+                zip.file(`${s.name}_IEP回饋表.doc`, content);
+            });
+            const content = await zip.generateAsync({ type: "blob" });
+            window.saveAs(content, `IEP回饋表彙整_${new Date().toLocaleDateString()}.zip`);
+        };
+
+        // --- 1. 基礎元件 ---
+
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const containerRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide && containerRef.current) {
+                    containerRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+                    window.lucide.createIcons({ attrs: { class: className }, nameAttr: 'data-lucide' });
+                }
+            }, [name, className]);
+            return <span ref={containerRef} className="inline-flex items-center justify-center"></span>;
+        };
+
+        const PasswordInput = ({ value, onChange, placeholder, onEnter }) => {
+            const [showPwd, setShowPwd] = useState(false);
+            return (
+                <div className="relative w-full mb-6">
+                    <input 
+                        type={showPwd ? "text" : "password"} 
+                        placeholder={placeholder} 
+                        className="w-full border-2 border-slate-200 rounded-2xl px-6 py-4 text-center font-black outline-none focus:border-blue-600 bg-slate-50 shadow-inner text-xl tracking-widest" 
+                        value={value} 
+                        onChange={onChange}
+                        onKeyDown={e => e.key === 'Enter' && onEnter && onEnter()}
+                    />
+                    <button 
+                        onClick={() => setShowPwd(!showPwd)} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30 hover:opacity-100 transition-opacity p-2"
+                        tabIndex="-1"
+                    >
+                        <Icon name={showPwd ? "eye-off" : "eye"} />
+                    </button>
+                </div>
+            );
+        };
+
+        const Navbar = ({ onSwitchRole, currentRole }) => (
+            <nav className="bg-white border-b-2 border-slate-200 sticky top-0 z-[60] px-4 md:px-8 h-20 flex items-center justify-between shadow-sm no-print font-black">
+                <div className="flex items-center gap-4">
+                    <button onClick={()=>onSwitchRole('home')} className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-90"><Icon name="home" /></button>
+                    <span className="font-black text-xl tracking-tighter uppercase hidden md:inline">IEP 會議意見回饋系統</span>
+                </div>
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl border-2 border-slate-200 shadow-inner">
+                    {[
+                        {id: 'sped', label: '特師'},
+                        {id: 'teacher', label: '導師'},
+                        {id: 'student', label: '學生'}
+                    ].map(item => (
+                        <button 
+                            key={item.id} 
+                            onClick={() => onSwitchRole(item.id)} 
+                            className={`px-5 py-2 rounded-xl text-xs font-black transition-all ${currentRole.includes(item.id) ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            </nav>
+        );
+
+        // 語音輸入 Hook
+        const useSpeechRecognition = () => {
+            const [isRecording, setIsRecording] = useState(false);
+            const recognitionRef = useRef(null);
+
+            useEffect(() => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRecognition) {
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = false;
+                    recognitionRef.current.interimResults = false;
+                    recognitionRef.current.lang = 'zh-TW';
+                }
+            }, []);
+
+            const startListening = (onResult) => {
+                if (recognitionRef.current) {
+                    setIsRecording(true);
+                    recognitionRef.current.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        onResult(transcript);
+                        setIsRecording(false);
+                    };
+                    recognitionRef.current.onend = () => setIsRecording(false);
+                    recognitionRef.current.start();
+                } else { alert("瀏覽器不支援語音輸入"); }
+            };
+            const stopListening = () => { if(recognitionRef.current) { recognitionRef.current.stop(); setIsRecording(false); } };
+            return { isRecording, startListening, stopListening, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
+        };
+
+        const SpeechInputButton = ({ onTranscript, colorClass = "text-slate-500 hover:text-blue-600" }) => {
+            const { isRecording, startListening, stopListening, supported } = useSpeechRecognition();
+            if (!supported) return null;
+            return (
+                <button 
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); isRecording ? stopListening() : startListening(onTranscript); }}
+                    className={`absolute bottom-2 right-2 p-2 rounded-full transition-all z-10 ${isRecording ? 'bg-red-500 text-white recording-pulse' : 'bg-white/80 shadow-sm border ' + colorClass}`}
+                    title="語音輸入"
+                >
+                    <Icon name={isRecording ? "mic-off" : "mic"} className="w-4 h-4" />
+                </button>
+            );
+        };
+
+        // 語音朗讀 Hook
+        const useSpeechSynthesis = () => {
+            const [voices, setVoices] = useState([]);
+            const [supported, setSupported] = useState(false);
+
+            useEffect(() => {
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                    setSupported(true);
+                    const updateVoices = () => {
+                        const vs = window.speechSynthesis.getVoices();
+                        const zhVoices = vs.filter(v => v.lang.includes('zh') || v.lang.includes('TW') || v.lang.includes('CN'));
+                        setVoices(zhVoices.length > 0 ? zhVoices : vs);
+                    };
+                    updateVoices();
+                    window.speechSynthesis.onvoiceschanged = updateVoices;
+                }
+            }, []);
+
+            const speak = (text, voice, rate = 1) => {
+                if (!supported) return;
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                if (voice) utterance.voice = voice;
+                utterance.rate = rate;
+                window.speechSynthesis.speak(utterance);
+            };
+
+            return { voices, speak, supported };
+        };
+
+        // --- 2. 學生端表單元件 ---
+
+        const StudentCheckbox = ({ label, checked, onChange, onSpeak }) => (
+            <label className={`flex items-start gap-3 cursor-pointer group p-3 rounded-2xl border-2 transition-all relative ${checked ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200 hover:border-green-300'}`}>
+                <input type="checkbox" className="absolute opacity-0 custom-checkbox" checked={checked} onChange={onChange} />
+                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${checked ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 bg-slate-50'}`}>
+                    {checked && <Icon name="check" className="w-4 h-4" />}
+                </div>
+                <span className={`flex-1 ${checked ? 'text-green-800' : 'text-slate-600'}`}>{label}</span>
+                {onSpeak && (
+                    <button 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSpeak(); }} 
+                        className="text-green-400 hover:text-green-600 p-1 rounded-full hover:bg-green-100 transition-colors"
+                    >
+                        <Icon name="volume-2" className="w-4 h-4" />
+                    </button>
+                )}
+            </label>
+        );
+
+        const StudentRadio = ({ label, name, value, checked, onChange, icon }) => (
+            <label className={`flex items-center gap-2 cursor-pointer p-2 rounded-xl border-2 transition-all ${checked ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200'}`}>
+                <input type="radio" name={name} className="absolute opacity-0 custom-radio" value={value} checked={checked} onChange={onChange} />
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'border-green-500' : 'border-slate-300'}`}>
+                    {checked && <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>}
+                </div>
+                <span className="flex items-center gap-2">{icon && <span>{icon}</span>} {label}</span>
+            </label>
+        );
+
+        const LikertScale = ({ name, value, onChange, options, speak, selectedVoice, speechRate }) => (
+            <div className="flex flex-wrap gap-2 md:gap-4 justify-center py-4">
+                {options.map((opt, idx) => (
+                    <label key={opt.val} className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 md:w-28 text-center ${value == opt.val ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-green-300 text-slate-500'}`}>
+                        <input type="radio" name={name} className="hidden" value={opt.val} checked={value == opt.val} onChange={() => onChange(opt.val)} />
+                        <span className="text-2xl">{opt.emoji}</span>
+                        <span className="text-xs font-black">{opt.label}</span>
+                        {/* 小喇叭放在選項內 */}
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(opt.label, selectedVoice, speechRate); }} className={`p-1 rounded-full ${value == opt.val ? 'text-green-200 hover:bg-green-600' : 'text-slate-300 hover:text-green-500'}`}>
+                            <Icon name="volume-2" className="w-3 h-3" />
+                        </button>
+                    </label>
+                ))}
+            </div>
+        );
+
+        const OtherInput = ({ value, onChange, placeholder, color = "green" }) => (
+            <div className="relative w-full mt-2 animate-fade-in">
+                <input 
+                    type="text" 
+                    className={`w-full p-3 pr-10 rounded-xl border-2 outline-none transition-all ${color === 'green' ? 'border-green-200 focus:border-green-500 bg-white' : 'border-slate-200 focus:border-blue-500 bg-white'}`}
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={onChange}
+                    onClick={(e) => e.stopPropagation()} 
+                />
+                <SpeechInputButton onTranscript={(t) => {
+                    const event = { target: { value: value + t } };
+                    onChange(event);
+                }} />
+            </div>
+        );
+
+        // --- 資料常數 ---
+        const TEACHER_Q2_OPTIONS = [
+            "生活自理能力", "注意力", "記憶力", "聽覺理解能力", "口語表達能力",
+            "情緒發展", "挫折容忍", "人際關係", "活動參與", "環境適應",
+            "拼音能力", "識字能力", "寫字能力", "寫作(造句)能力", "閱讀能力",
+            "數學基本概念", "計算能力", "文字題解題能力", "時間觀念", "學習動機"
+        ];
+
+        const STD_Q1_OPTS = [
+            "教我學習方法和策略,讓我比較容易聽懂與學會",
+            "老師會看我的學習狀況,調整成適合我學習的內容",
+            "上課人數少,我比較能得到老師的關心與協助",
+            "可以讓我比較有信心,增加自信",
+            "可以讓我知道我其實只是學得比較慢,慢慢學,多練習,還是能學會",
+            "可以幫助我處理情緒,調整想法或用更好的方法交朋友",
+        ];
+
+        const STD_Q2_OPTS = ["學習策略", "國語課", "數學課", "社會技巧"];
+
+        const STD_Q3_LIKE_OPTS = [
+            "課程好玩有趣", "上課比較聽得懂", "可以得到平板的協助", 
+            "國語進步了", "數學進步了", "說話更清楚了", 
+            "學到做事的方法", "可以得到積點與換獎品"
+        ];
+
+        // --- 獨立頁面元件 ---
+
+        const LandingPage = ({ onSwitchRole }) => (
+            <div className="max-w-[1400px] mx-auto p-8 text-center py-20 animate-fade-in">
+                <h1 className="text-4xl md:text-5xl font-black mb-16 uppercase tracking-tighter">IEP 會議意見回饋系統</h1>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    {[{ r: 'sped', l: '特師入口', i: 'settings', d: '管理個案與報表' }, { r: 'teacher', l: '導師入口', i: 'clipboard-list', d: '填寫觀察回饋' }, { r: 'student', l: '學生入口', i: 'smile', d: '自我評估' }].map(item => (
+                        <div key={item.r} onClick={() => onSwitchRole(item.r)} className="p-10 bg-white rounded-[40px] border-2 border-slate-200 shadow-sm hover:shadow-xl cursor-pointer group hover:border-blue-500 transition-all border-b-[10px] hover:border-b-blue-600 font-black">
+                            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner"><Icon name={item.i} className="w-8 h-8" /></div>
+                            <h3 className="text-2xl font-black mb-2">{item.l}</h3>
+                            <p className="text-slate-400 text-sm font-black opacity-60 uppercase">{item.d}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const SpedLogin = ({ adminPwd, setAdminPwd, handleLogin, authError }) => (
+            <div className="max-w-sm mx-auto py-20 text-center animate-fade-in">
+                <div className="bg-white p-10 rounded-[50px] shadow-2xl border-2 border-slate-200 border-t-8 border-blue-600">
+                    <div className="bg-blue-600 text-white w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg"><Icon name="lock" className="w-8 h-8" /></div>
+                    <h2 className="text-2xl font-black mb-8 uppercase tracking-widest">管理端驗證</h2>
+                    <PasswordInput value={adminPwd} onChange={e => setAdminPwd(e.target.value)} placeholder="請輸入管理代碼" onEnter={handleLogin} />
+                    {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
+                    <button onClick={handleLogin} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all hover:bg-black">確認登入</button>
+                </div>
+            </div>
+        );
+
+        const SpedDashboard = ({ students, handleCreateStudent, handleDeleteStudent, handleUpdateStudent }) => {
+            const [newName, setNewName] = useState('');
+            const [newCode, setNewCode] = useState('');
+            const [newManager, setNewManager] = useState('李老師');
+            const [viewingId, setViewingId] = useState(null); 
+            const [editingId, setEditingId] = useState(null); 
+            const [editName, setEditName] = useState('');
+            const [editCode, setEditCode] = useState('');
+            const [editManager, setEditManager] = useState('');
+
+            const startEdit = (student) => {
+                setEditingId(student.id);
+                setEditName(student.name);
+                setEditCode(student.accessCode);
+                setEditManager(student.manager);
+            };
+
+            const saveEdit = () => {
+                if(editingId) {
+                    handleUpdateStudent(editingId, { name: editName, accessCode: editCode, manager: editManager });
+                    setEditingId(null);
+                }
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 md:p-8 animate-fade-in">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+                        <h1 className="text-3xl font-black text-slate-800">特教老師管理後台</h1>
+                        <button onClick={() => downloadAllZip(students)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:bg-indigo-700 flex items-center gap-2 transition-all active:scale-95">
+                            <Icon name="download" className="w-5 h-5"/> 下載全部個案 (Zip)
+                        </button>
+                    </div>
+                    
+                    {/* 新增區塊 */}
+                    <div className="bg-white p-8 rounded-[30px] shadow-sm mb-10 border border-slate-200">
+                        <h3 className="font-black text-slate-500 mb-4 flex items-center gap-2"><Icon name="user-plus" className="w-5 h-5"/> 建立新個案</h3>
+                        <div className="flex flex-col md:flex-row gap-6 items-end">
+                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">學生姓名</label><input placeholder="輸入姓名" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all" value={newName} onChange={e=>setNewName(e.target.value)} /></div>
+                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">登入密碼 (驗證碼)</label><input placeholder="設定密碼" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all" value={newCode} onChange={e=>setNewCode(e.target.value)} /></div>
+                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">個管老師</label><div className="relative"><select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 appearance-none transition-all cursor-pointer" value={newManager} onChange={e=>setNewManager(e.target.value)}><option value="李老師">李老師</option><option value="傅老師">傅老師</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" className="w-5 h-5" /></div></div></div>
+                            <button className="w-full md:w-auto bg-slate-800 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-black hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2" onClick={()=>{ if(newName && newCode) { handleCreateStudent(newName, newCode, newManager); setNewName(''); setNewCode(''); } else { alert("請輸入完整資料"); } }}><Icon name="plus" className="w-5 h-5" /> 新增</button>
+                        </div>
+                    </div>
+
+                    {/* 列表區塊 */}
+                    <div className="grid grid-cols-1 gap-6">
+                        {students.map(s => (
+                            <div key={s.id} className="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100 hover:shadow-xl transition-all relative">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    {/* 學生資訊 / 編輯模式 */}
+                                    {editingId === s.id ? (
+                                        <div className="flex-1 flex gap-4 w-full">
+                                            <input className="p-2 border rounded-xl flex-1" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="姓名" />
+                                            <input className="p-2 border rounded-xl w-32" value={editCode} onChange={e=>setEditCode(e.target.value)} placeholder="密碼" />
+                                            <select className="p-2 border rounded-xl w-32" value={editManager} onChange={e=>setEditManager(e.target.value)}><option value="李老師">李老師</option><option value="傅老師">傅老師</option></select>
+                                            <button onClick={saveEdit} className="bg-green-500 text-white px-4 rounded-xl font-bold"><Icon name="save" className="w-4 h-4"/></button>
+                                            <button onClick={()=>setEditingId(null)} className="bg-slate-200 text-slate-500 px-4 rounded-xl font-bold"><Icon name="x" className="w-4 h-4"/></button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black shadow-inner ${s.manager === '傅老師' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>{s.name[0]}</div>
+                                            <div>
+                                                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                                    {s.name} 
+                                                    <button onClick={()=>startEdit(s)} className="text-slate-300 hover:text-blue-500"><Icon name="edit-3" className="w-4 h-4"/></button>
+                                                </h3>
+                                                <div className="flex gap-2 mt-1">
+                                                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-lg font-bold">密碼: {s.accessCode}</span>
+                                                    <span className={`text-[10px] px-2 py-1 rounded-lg font-bold ${s.manager === '傅老師' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>{s.manager}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 狀態與操作 */}
+                                    <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+                                        <div className="flex gap-3 text-sm">
+                                            <div className={`px-3 py-1 rounded-xl flex items-center gap-1 border ${s.teacherFeedback ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}><Icon name="user-check" className="w-3 h-3" /> 導師{s.teacherFeedback ? 'OK' : ''}</div>
+                                            <div className={`px-3 py-1 rounded-xl flex items-center gap-1 border ${s.studentFeedback ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}><Icon name="smile" className="w-3 h-3" /> 學生{s.studentFeedback ? 'OK' : ''}</div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={()=>downloadSingleDoc(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="下載 Word"><Icon name="file-text" className="w-5 h-5" /></button>
+                                            <button onClick={()=>setViewingId(viewingId === s.id ? null : s.id)} className={`px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${viewingId === s.id ? 'bg-slate-800 text-white' : 'bg-white border-2 border-slate-200 hover:border-slate-400'}`}>
+                                                {viewingId === s.id ? '收起' : '查看詳情'} <Icon name={viewingId === s.id ? "chevron-up" : "chevron-down"} className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={()=>handleDeleteStudent(s.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Icon name="trash-2" className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 展開詳情 */}
+                                {viewingId === s.id && (
+                                    <div className="mt-6 pt-6 border-t-2 border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+                                        <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
+                                            <h4 className="font-black text-blue-700 mb-4 flex justify-between">導師回饋 {s.teacherFeedback?.submittedAt && <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded">{new Date(s.teacherFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
+                                            {s.teacherFeedback ? (
+                                                <div className="space-y-4 text-sm text-slate-700">
+                                                    <p><strong>進步情形：</strong>{s.teacherFeedback.q1_progress} {s.teacherFeedback.q1_other}</p>
+                                                    <p><strong>最大幫助：</strong>{s.teacherFeedback.q2_help?.join(', ')} {s.teacherFeedback.q2_other}</p>
+                                                    <p><strong>困擾問題：</strong>{s.teacherFeedback.q3_hasIssue === 'yes' ? s.teacherFeedback.q3_desc : '無'}</p>
+                                                    <p><strong>補充說明：</strong>{s.teacherFeedback.q4_comment}</p>
+                                                </div>
+                                            ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
+                                        </div>
+                                        <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100">
+                                            <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
+                                            {s.studentFeedback ? (
+                                                <div className="space-y-4 text-sm text-slate-700">
+                                                    <p><strong>幫助程度 (1-5)：</strong>{s.studentFeedback.q1_level || '-'}</p>
+                                                    <p><strong>具體幫助：</strong>{s.studentFeedback.q1?.join(', ')} {s.studentFeedback.q1_other}</p>
+                                                    <p><strong>有趣課程：</strong>{s.studentFeedback.q2?.join(', ')} {s.studentFeedback.q2_other}</p>
+                                                    <p><strong>喜好程度 (1-5)：</strong>{s.studentFeedback.q3_level || '-'}</p>
+                                                    <p><strong>喜歡原因：</strong>{s.studentFeedback.q3_like?.join(', ')} {s.studentFeedback.q3_like_other}</p>
+                                                    {s.studentFeedback.q3_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q3_neutral_text}</p>}
+                                                    <p><strong>不喜歡原因：</strong>{s.studentFeedback.q3_dislike_text}</p>
+                                                    <p><strong>給老師的話：</strong>{s.studentFeedback.teacher_words}</p>
+                                                </div>
+                                            ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const TeacherView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, teacherForm, setTeacherForm, submitFeedback, onSwitchRole }) => {
+            if(!selectedStudent || !isUserAuth) return (
+                <div className="max-w-sm mx-auto py-20 animate-fade-in">
+                    <div className="bg-white p-10 rounded-[50px] shadow-2xl border-2 border-slate-200 text-center">
+                        <h2 className="text-2xl font-black mb-8 text-blue-600">導師登入</h2>
+                        {!selectedStudent ? (
+                            <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2">
+                                {students.map(s => (<button key={s.id} onClick={() => setSelectedStudent(s)} className="p-4 bg-slate-50 hover:bg-blue-600 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700">{s.name}</button>))}
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="mb-6 font-black text-blue-700">{selectedStudent.name}</div>
+                                <PasswordInput value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="驗證碼" onEnter={handleLogin} />
+                                {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
+                                <div className="flex gap-4">
+                                    <button onClick={() => { setSelectedStudent(null); setAccessCode(''); }} className="flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl">重選</button>
+                                    <button onClick={handleLogin} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black shadow-lg">進入</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+            return (
+                <div className="max-w-3xl mx-auto p-4 md:p-8 animate-fade-in">
+                    <div className="bg-white rounded-[40px] shadow-xl overflow-hidden">
+                        <div className="bg-blue-600 p-8 text-white"><h2 className="text-3xl font-black mb-2">IEP 會議導師意見回饋</h2><p className="opacity-80 font-bold">學生：{selectedStudent.name}</p></div>
+                        <div className="p-8 md:p-12 space-y-10">
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(一) 您認為該生接受特殊教育後，學習情形有進步嗎？</h3>
+                                <div className="space-y-3 pl-4">
+                                    {['有，進步很多','有，但進步緩慢','沒有進步'].map(o=><label key={o} className="flex items-center gap-3 cursor-pointer group"><input type="radio" checked={teacherForm.q1_progress===o} onChange={()=>setTeacherForm({...teacherForm, q1_progress:o})} className="w-5 h-5 accent-blue-600"/><span className="font-bold text-slate-700">{o}</span></label>)}
+                                    <label className="flex items-center gap-3 cursor-pointer group"><input type="radio" checked={teacherForm.q1_progress==='其他'} onChange={()=>setTeacherForm({...teacherForm, q1_progress:'其他'})} className="w-5 h-5 accent-blue-600"/>其他：<input className="border-b-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 flex-1 px-2" value={teacherForm.q1_other||''} onChange={e=>setTeacherForm({...teacherForm, q1_progress:'其他', q1_other:e.target.value})} /></label>
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(二) 您認為本學期特殊教育的教學與輔導對該生最大的幫助為何？（可複選）</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4">
+                                    {TEACHER_Q2_OPTIONS.map(o=><label key={o} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors"><input type="checkbox" checked={(teacherForm.q2_help||[]).includes(o)} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,o]:c.filter(x=>x!==o)})}} className="w-5 h-5 accent-blue-600 rounded"/><span className="font-bold text-slate-600 text-sm">{o}</span></label>)}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(三) 該生除了學習以外，有無其他困擾您的問題？</h3>
+                                <div className="space-y-3 pl-4">
+                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='no'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'no', q3_desc:''})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">無</span></label>
+                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='yes'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'yes'})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">有，請說明：</span></label>
+                                    {teacherForm.q3_hasIssue==='yes' && <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600" rows="3" value={teacherForm.q3_desc||''} onChange={e=>setTeacherForm({...teacherForm, q3_desc:e.target.value})}/>}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(四) 其他補充說明：</h3>
+                                <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[100px]" value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
+                            </section>
+                            <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫存返回</button>
+                                <button onClick={() => submitFeedback('teacher')} className="flex-1 bg-blue-600 text-white rounded-xl font-black text-lg shadow-xl hover:bg-blue-700">提交報告</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const StudentView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, studentForm, setStudentForm, submitFeedback, onSwitchRole, handleStudentCheck }) => {
+            const [fontSize, setFontSize] = useState('text-lg');
+            const { voices, speak, supported: ttsSupported } = useSpeechSynthesis();
+            const [selectedVoice, setSelectedVoice] = useState(null);
+            const [speechRate, setSpeechRate] = useState(1);
+
+            useEffect(() => {
+                if (voices.length > 0 && !selectedVoice) {
+                    const defaultVoice = voices.find(v => v.name.includes("Google") && v.lang.includes("zh")) || voices[0];
+                    setSelectedVoice(defaultVoice);
+                }
+            }, [voices]);
+
+            if (!selectedStudent || !isUserAuth) return (
+                <div className="max-w-sm mx-auto py-20 animate-fade-in">
+                    <div className="bg-white p-10 rounded-[50px] shadow-2xl border-2 border-slate-200 border-t-8 border-green-500 text-center">
+                        <div className="bg-green-500 text-white w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg"><Icon name="smile" className="w-8 h-8" /></div>
+                        <h2 className="text-xl font-black mb-8 uppercase tracking-widest">學生專區</h2>
+                        {!selectedStudent ? (
+                            <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2">
+                                {students.map(s => (<button key={s.id} onClick={() => setSelectedStudent(s)} className="p-4 bg-slate-50 hover:bg-green-500 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700">{s.name}</button>))}
+                            </div>
+                        ) : (
+                            <div className="animate-fade-in">
+                                <div className="mb-6 font-black text-green-700">{selectedStudent.name}</div>
+                                <PasswordInput value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="輸入驗證碼" onEnter={handleLogin} />
+                                {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
+                                <div className="flex gap-4">
+                                    <button onClick={() => { setSelectedStudent(null); setAccessCode(''); }} className="flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl">重選</button>
+                                    <button onClick={handleLogin} className="flex-1 bg-green-500 text-white py-3 rounded-2xl font-black shadow-lg">進入</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className={`max-w-4xl mx-auto p-4 md:p-8 student-theme ${fontSize} animate-fade-in`}>
+                    {/* 學生工具列：固定在最上方 */}
+                    <div className="fixed top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur border-b border-green-100 shadow-sm px-4 py-2 flex justify-center">
+                        <div className="flex flex-col md:flex-row items-center gap-4 justify-between w-full max-w-4xl">
+                            <div className="flex items-center gap-2 text-green-700 font-black text-base"><Icon name="accessibility" /> 輔助工具</div>
+                            <div className="flex flex-wrap gap-4 items-center justify-center w-full md:w-auto text-sm">
+                                <div className="flex bg-slate-100 rounded-lg p-1">
+                                    {[{l:'小',v:'text-base'}, {l:'中',v:'text-xl'}, {l:'大',v:'text-2xl'}].map(s => (
+                                        <button key={s.v} onClick={() => setFontSize(s.v)} className={`px-3 py-1 rounded-md transition-all font-bold ${fontSize === s.v ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>A{s.l}</button>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <select className="bg-slate-50 border rounded-lg px-2 py-1 max-w-[120px]" onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value))}>
+                                        {voices.map(v => <option key={v.name} value={v.name}>{v.name.replace('Microsoft', '').replace('Google', '')}</option>)}
+                                    </select>
+                                    <button onClick={() => speak("這是新的朗讀語音。", selectedVoice, speechRate)} className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 flex items-center gap-1"><Icon name="play" className="w-3 h-3"/> 試聽</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-16 bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-green-500 pb-10">
+                        <div className="p-8 md:p-12 space-y-12">
+                            <h2 className="text-3xl font-black text-center text-green-700">自我評估調查表</h2>
+                            
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第一題，我覺得到資源班上課，對自己的幫助是什麼？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
+                                    <h3 className="font-black text-green-800">1. 我覺得到資源班上課，對自己的幫助是什麼？</h3>
+                                </div>
+                                
+                                {/* Q1 幫助程度量表 */}
+                                <LikertScale 
+                                    name="q1_level" 
+                                    value={studentForm.q1_level} 
+                                    onChange={(v) => setStudentForm({ ...studentForm, q1_level: v })}
+                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
+                                    options={[
+                                        {val: 5, emoji: '🤩', label: '非常有幫助'},
+                                        {val: 4, emoji: '😊', label: '有幫助'},
+                                        {val: 3, emoji: '😐', label: '普通'},
+                                        {val: 2, emoji: '😕', label: '沒什麼幫助'},
+                                        {val: 1, emoji: '😫', label: '完全沒幫助'}
+                                    ]}
+                                />
+
+                                <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100">
+                                    <p className="text-sm text-slate-400 font-bold mb-2">具體幫助項目 (可複選)：</p>
+                                    {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q1.includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                    <div className="block">
+                                        <StudentCheckbox label="其他" checked={studentForm.q1.includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
+                                        {studentForm.q1.includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other} onChange={(e) => setStudentForm({ ...studentForm, q1_other: e.target.value })} />}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第二題，選出這學期我覺得有學到東西又有趣的課，可以選好多個", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
+                                    <h3 className="font-black text-green-800">2. 選出這學期我覺得有學到東西又有趣的課<span className="text-sm font-normal text-slate-500 block mt-1">(可複選)</span></h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10">
+                                    {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q2.includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                    <div className="block sm:col-span-2">
+                                        <StudentCheckbox label="其他" checked={studentForm.q2.includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
+                                        {studentForm.q2.includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other} onChange={(e) => setStudentForm({ ...studentForm, q2_other: e.target.value })} />}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="space-y-4 bg-green-50/50 p-6 rounded-3xl border border-green-100">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第三題，我喜歡到資源班上課嗎？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
+                                    <h3 className="font-black text-green-800">3. 我喜歡到資源班上課嗎？</h3>
+                                </div>
+                                
+                                {/* Q3 喜好程度量表 */}
+                                <LikertScale 
+                                    name="q3_level" 
+                                    value={studentForm.q3_level} 
+                                    onChange={(v) => setStudentForm({ ...studentForm, q3_level: v })}
+                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
+                                    options={[
+                                        {val: 5, emoji: '🥰', label: '超級喜歡'},
+                                        {val: 4, emoji: '😀', label: '喜歡'},
+                                        {val: 3, emoji: '🙂', label: '還好'},
+                                        {val: 2, emoji: '☹️', label: '不太喜歡'},
+                                        {val: 1, emoji: '😠', label: '很不喜歡'}
+                                    ]}
+                                />
+
+                                {/* Q3 條件式追問 */}
+                                {(studentForm.q3_level == 5 || studentForm.q3_level == 4) && (
+                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-green-300">
+                                        <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-green-700 text-base">✨ 我喜歡到資源班上課的原因：</h4></div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_like.includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                            <div className="block sm:col-span-2"><StudentCheckbox label="其他" checked={studentForm.q3_like.includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />{studentForm.q3_like.includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other} onChange={(e) => setStudentForm({ ...studentForm, q3_like_other: e.target.value })} />}</div>
+                                        </div>
+                                    </div>
+                                )}
+                                {(studentForm.q3_level == 3) && (
+                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-amber-300">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <h4 className="font-bold text-amber-600 text-base">🤔 有什麼想補充說明的嗎？</h4>
+                                        </div>
+                                        <div className="relative">
+                                            <textarea 
+                                                className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-amber-400 outline-none bg-white min-h-[100px]" 
+                                                placeholder="請寫下來..." 
+                                                value={studentForm.q3_neutral_text || ''} 
+                                                onChange={e => setStudentForm({...studentForm, q3_neutral_text: e.target.value})} 
+                                            />
+                                            <SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q3_neutral_text: (p.q3_neutral_text||'') + txt}))} />
+                                        </div>
+                                    </div>
+                                )}
+                                {(studentForm.q3_level == 2 || studentForm.q3_level == 1) && (
+                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-red-300">
+                                        <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-red-500 text-base">🌧️ 我不喜歡到資源班上課的原因：</h4></div>
+                                        <div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-red-400 outline-none bg-white min-h-[100px]" placeholder="請告訴老師原因..." value={studentForm.q3_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q3_dislike_text: e.target.value})} /><SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q3_dislike_text: (p.q3_dislike_text||'') + txt}))} /></div>
+                                    </div>
+                                )}
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("請給自己建議或鼓勵的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 請給自己建議或鼓勵的話 :)</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.self_encourage} onChange={e => setStudentForm({...studentForm, self_encourage: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, self_encourage: p.self_encourage + t}))} /></div></div>
+                                <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("想給潛能班老師的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 想給潛能班老師的話</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.teacher_words} onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, teacher_words: p.teacher_words + t}))} /></div></div>
+                            </div>
+
+                            <div className="pt-6 flex gap-4 text-base">
+                                <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫時離開</button>
+                                <button onClick={() => submitFeedback('student')} className="flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-200 hover:bg-green-600 hover:shadow-2xl transition-all hover:-translate-y-1">完成提交</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 3. App 主程式 ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [role, setRole] = useState('home'); 
+            const [students, setStudents] = useState([]);
+            const [selectedStudent, setSelectedStudent] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            // 驗證
+            const [adminPwd, setAdminPwd] = useState('');
+            const [isAdminAuth, setIsAdminAuth] = useState(false);
+            const [accessCode, setAccessCode] = useState('');
+            const [isUserAuth, setIsUserAuth] = useState(false);
+            const [authError, setAuthError] = useState('');
+
+            // 表單資料
+            const [teacherForm, setTeacherForm] = useState({});
+            const [studentForm, setStudentForm] = useState({
+                q1: [], q1_other: '', q1_level: null,
+                q2: [], q2_other: '',
+                q3: '', q3_level: null,
+                q3_like: [], q3_like_other: '',
+                q3_neutral_text: '', // 新增：普通選項的補充說明
+                q3_dislike: [], q3_dislike_text: '',
+                rights_1: '', rights_2: '', self_encourage: '', teacher_words: ''
+            });
+
+            // Firebase 初始化
+            useEffect(() => {
+                const init = async () => {
+                    if (!window.IEP_FB) return;
+                    const { auth, db, appId, collection, onSnapshot, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.IEP_FB;
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                        else await signInAnonymously(auth);
+                    } catch (e) { console.error(e); }
+                    
+                    onAuthStateChanged(auth, (u) => {
+                        setUser(u);
+                        if (u) {
+                            const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), (snap) => {
+                                const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                                list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+                                setStudents(list);
+                                setLoading(false);
+                            });
+                            return () => unsub();
+                        } else setLoading(false);
+                    });
+                };
+                init();
+            }, []);
+
+            // 導師暫存
+            useEffect(() => {
+                if (role === 'teacher' && selectedStudent) {
+                    const draftKey = `iep_teacher_draft_${selectedStudent.id}`;
+                    const savedDraft = localStorage.getItem(draftKey);
+                    if (selectedStudent.teacherFeedback) setTeacherForm(selectedStudent.teacherFeedback);
+                    else if (savedDraft) try { setTeacherForm(JSON.parse(savedDraft)); } catch(e){}
+                    else setTeacherForm({});
+                }
+            }, [role, selectedStudent]);
+
+            useEffect(() => {
+                if (role === 'teacher' && selectedStudent && Object.keys(teacherForm).length > 0) {
+                    localStorage.setItem(`iep_teacher_draft_${selectedStudent.id}`, JSON.stringify(teacherForm));
+                }
+            }, [teacherForm]);
+
+            const clearDraft = (id) => localStorage.removeItem(`iep_teacher_draft_${id}`);
+
+            // 資料操作
+            const handleCreateStudent = async (name, code, manager) => {
+                if (!name || !code) return;
+                const { db, appId, addDoc, collection } = window.IEP_FB;
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), {
+                    name, accessCode: code, manager, createdAt: new Date().toISOString()
+                });
+            };
+
+            const handleDeleteStudent = async (id) => {
+                if (!confirm("確定刪除？")) return;
+                const { db, appId, deleteDoc, doc } = window.IEP_FB;
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id));
+            };
+
+            const handleUpdateStudent = async (id, data) => {
+                const { db, appId, updateDoc, doc } = window.IEP_FB;
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id), data);
+                } catch (e) { console.error("Update Error", e); }
+            };
+
+            const handleLogin = () => {
+                setAuthError('');
+                if (role === 'sped' || role === 'sped_login') {
+                    if (adminPwd === 'tset') {
+                        setIsAdminAuth(true);
+                        setRole('sped');
+                    } else setAuthError('密碼錯誤');
+                } else {
+                    if (selectedStudent && accessCode === selectedStudent.accessCode) {
+                        setIsUserAuth(true);
+                        if(role === 'student' && selectedStudent.studentFeedback) {
+                            setStudentForm({ ...studentForm, ...selectedStudent.studentFeedback });
+                        }
+                    } else setAuthError('驗證碼錯誤');
+                }
+            };
+
+            const submitFeedback = async (type) => {
+                if (!selectedStudent) return;
+                const { db, appId, updateDoc, doc } = window.IEP_FB;
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', selectedStudent.id);
+                if (type === 'teacher') {
+                    await updateDoc(ref, { teacherFeedback: { ...teacherForm, submittedAt: new Date().toISOString() } });
+                    clearDraft(selectedStudent.id);
+                    alert("導師回饋已提交");
+                } else {
+                    await updateDoc(ref, { studentFeedback: { ...studentForm, submittedAt: new Date().toISOString() } });
+                    alert("學生回饋已提交");
+                }
+                setRole('home');
+                resetState();
+            };
+
+            const resetState = () => {
+                setIsAdminAuth(false); setIsUserAuth(false); setSelectedStudent(null);
+                setAccessCode(''); setAdminPwd(''); setTeacherForm({}); 
+                setStudentForm({ q1: [], q1_other: '', q1_level: null, q2: [], q2_other: '', q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '', rights_1: '', rights_2: '', self_encourage: '', teacher_words: '' });
+                setAuthError('');
+            };
+
+            const handleStudentCheck = (field, value) => {
+                const current = studentForm[field] || [];
+                const next = current.includes(value) ? current.filter(x => x !== value) : [...current, value];
+                setStudentForm({ ...studentForm, [field]: next });
+            };
+
+            const handleRoleSwitch = (newRole) => {
+                if (newRole === 'home') { resetState(); setRole('home'); return; }
+                setAuthError(''); setAccessCode(''); setAdminPwd(''); setIsUserAuth(false); setSelectedStudent(null);
+                if (newRole === 'sped' && !isAdminAuth) setRole('sped_login');
+                else if (newRole === 'sped' && isAdminAuth) setRole('sped');
+                else setRole(newRole);
+            };
+
+            if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-400 font-black">系統載入中...</div>;
+
+            return (
+                <div className="min-h-screen pb-20 font-black">
+                    <Navbar onSwitchRole={handleRoleSwitch} currentRole={role} />
+                    <main className="max-w-[1400px] mx-auto p-4">
+                        {role === 'home' && <LandingPage onSwitchRole={handleRoleSwitch} />}
+                        {role === 'sped_login' && <SpedLogin adminPwd={adminPwd} setAdminPwd={setAdminPwd} handleLogin={handleLogin} authError={authError} />}
+                        {role === 'sped' && <SpedDashboard students={students} handleCreateStudent={handleCreateStudent} handleDeleteStudent={handleDeleteStudent} handleUpdateStudent={handleUpdateStudent} />}
+                        {role === 'teacher' && <TeacherView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} teacherForm={teacherForm} setTeacherForm={setTeacherForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} />}
+                        {role === 'student' && <StudentView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} studentForm={studentForm} setStudentForm={setStudentForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} handleStudentCheck={handleStudentCheck} />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
