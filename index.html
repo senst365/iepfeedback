@@ -118,10 +118,10 @@
                     ${s.teacherFeedback ? `
                         <div class="content">
                             <h3>(一) 學習進步情形</h3>
-                            <p>${s.teacherFeedback.q1_progress || ''} ${s.teacherFeedback.q1_other ? `(${s.teacherFeedback.q1_other})` : ''}</p>
+                            <p>${s.teacherFeedback.q1_progress || ''} (程度: ${s.teacherFeedback.q1_level || '-'})</p>
                             
                             <h3>(二) 最大的幫助</h3>
-                            <p>${(s.teacherFeedback.q2_help || []).join('、')} ${s.teacherFeedback.q2_other ? `、${s.teacherFeedback.q2_other}` : ''}</p>
+                            <p>${(s.teacherFeedback.q2_help || []).join('、')} ${s.teacherFeedback.q2_other ? `、其他：${s.teacherFeedback.q2_other}` : ''}</p>
                             
                             <h3>(三) 其他困擾問題</h3>
                             <p>${s.teacherFeedback.q3_hasIssue === 'yes' ? `有：${s.teacherFeedback.q3_desc}` : '無'}</p>
@@ -181,7 +181,7 @@
                     "個管老師": s.manager,
                     "驗證碼": s.accessCode,
                     "導師-填寫時間": t.submittedAt ? new Date(t.submittedAt).toLocaleString('zh-TW') : '未填寫',
-                    "導師-進步情形": `${t.q1_progress || ''} ${t.q1_other || ''}`,
+                    "導師-進步情形": `${t.q1_progress || ''} (${t.q1_level || ''})`,
                     "導師-最大幫助": `${(t.q2_help || []).join(', ')} ${t.q2_other || ''}`,
                     "導師-困擾問題": t.q3_hasIssue === 'yes' ? t.q3_desc : (t.q3_hasIssue === 'no' ? '無' : ''),
                     "導師-補充說明": t.q4_comment || '',
@@ -624,16 +624,35 @@
                         <div className="p-8 md:p-12 space-y-10">
                             <section>
                                 <h3 className="font-bold mb-3 text-blue-800 text-lg">(一) 您認為該生接受特殊教育後，學習情形有進步嗎？</h3>
-                                <div className="space-y-3 pl-4">
-                                    {['有，進步很多','有，但進步緩慢','沒有進步'].map(o=><label key={o} className="flex items-center gap-3 cursor-pointer group"><input type="radio" checked={teacherForm.q1_progress===o} onChange={()=>setTeacherForm({...teacherForm, q1_progress:o})} className="w-5 h-5 accent-blue-600"/><span className="font-bold text-slate-700">{o}</span></label>)}
-                                    <label className="flex items-center gap-3 cursor-pointer group"><input type="radio" checked={teacherForm.q1_progress==='其他'} onChange={()=>setTeacherForm({...teacherForm, q1_progress:'其他'})} className="w-5 h-5 accent-blue-600"/>其他：<input className="border-b-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 flex-1 px-2" value={teacherForm.q1_other||''} onChange={e=>setTeacherForm({...teacherForm, q1_progress:'其他', q1_other:e.target.value})} /></label>
+                                <div className="flex flex-wrap gap-2 md:gap-4 justify-start pl-4">
+                                    {[
+                                        {val: 5, label: '進步非常多'},
+                                        {val: 4, label: '進步很多'},
+                                        {val: 3, label: '有進步'},
+                                        {val: 2, label: '進步緩慢'},
+                                        {val: 1, label: '沒有進步'}
+                                    ].map(opt => (
+                                        <label key={opt.val} className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 text-center ${teacherForm.q1_level == opt.val ? 'bg-blue-500 border-blue-500 text-white shadow-lg' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}>
+                                            <input type="radio" name="q1_level" className="hidden" value={opt.val} checked={teacherForm.q1_level == opt.val} onChange={() => setTeacherForm({...teacherForm, q1_level: opt.val, q1_progress: opt.label})} />
+                                            <span className="text-sm font-black">{opt.label}</span>
+                                        </label>
+                                    ))}
                                 </div>
                             </section>
                             <section>
                                 <h3 className="font-bold mb-3 text-blue-800 text-lg">(二) 您認為本學期特殊教育的教學與輔導對該生最大的幫助為何？（可複選）</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4">
                                     {TEACHER_Q2_OPTIONS.map(o=><label key={o} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors"><input type="checkbox" checked={(teacherForm.q2_help||[]).includes(o)} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,o]:c.filter(x=>x!==o)})}} className="w-5 h-5 accent-blue-600 rounded"/><span className="font-bold text-slate-600 text-sm">{o}</span></label>)}
+                                    <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                                        <input type="checkbox" checked={(teacherForm.q2_help||[]).includes('其他')} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,'其他']:c.filter(x=>x!=='其他')})}} className="w-5 h-5 accent-blue-600 rounded"/>
+                                        <span className="font-bold text-slate-600 text-sm">其他</span>
+                                    </label>
                                 </div>
+                                {(teacherForm.q2_help||[]).includes('其他') && (
+                                    <div className="pl-4 mt-3">
+                                        <input className="w-full border-b-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 px-2 py-1" placeholder="請說明..." value={teacherForm.q2_other||''} onChange={e=>setTeacherForm({...teacherForm, q2_other:e.target.value})} />
+                                    </div>
+                                )}
                             </section>
                             <section>
                                 <h3 className="font-bold mb-3 text-blue-800 text-lg">(三) 該生除了學習以外，有無其他困擾您的問題？</h3>
@@ -645,7 +664,7 @@
                             </section>
                             <section>
                                 <h3 className="font-bold mb-3 text-blue-800 text-lg">(四) 其他補充說明：</h3>
-                                <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[100px]" value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
+                                <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[100px]" placeholder="例如:希望課程加入的內容..." value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
                             </section>
                             <div className="flex gap-4 pt-4 border-t border-slate-100">
                                 <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫存返回</button>
