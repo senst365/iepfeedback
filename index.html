@@ -49,6 +49,13 @@
             border-color: #22c55e;
             color: #15803d;
         }
+        /* 導師端藍色主題 */
+        .teacher-theme .custom-checkbox:checked + div, .teacher-theme .custom-radio:checked + div {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+
         .recording-pulse { animation: pulse-red 1.5s infinite; }
         @keyframes pulse-red {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
@@ -80,7 +87,7 @@
             const app = initializeApp(config);
             const auth = getAuth(app);
             const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'iep-feedback-final-v2'; 
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'iep-feedback-final-v3'; 
             window.IEP_FB = { auth, db, appId, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
         } catch (e) { console.error("Firebase Init Error", e); }
     </script>
@@ -147,7 +154,11 @@
                             ${s.studentFeedback.q3_neutral_text ? `<p>普通補充：${s.studentFeedback.q3_neutral_text}</p>` : ''}
                             ${s.studentFeedback.q3_dislike_text ? `<p>不喜歡的原因：${s.studentFeedback.q3_dislike_text}</p>` : ''}
                             
-                            <h3>4. 自我期許與建議</h3>
+                            <h3>4. 權益告知</h3>
+                            <p>權益知悉：${s.studentFeedback.rights_1 === 'yes' ? '我知道' : '我不知道'}</p>
+                            <p>課程討論：${s.studentFeedback.rights_2 === 'agree' ? '我知道，且同意' : (s.studentFeedback.rights_2 === 'opinion' ? `有意見：${s.studentFeedback.rights_2_opinion}` : '我不知道')}</p>
+
+                            <h3>5. 自我期許與建議</h3>
                             <p>給自己：${s.studentFeedback.self_encourage || '無'}</p>
                             <p>給老師：${s.studentFeedback.teacher_words || '無'}</p>
                         </div>
@@ -191,6 +202,8 @@
                     "學生-有趣課程": `${(st.q2 || []).join(', ')} ${st.q2_other || ''}`,
                     "學生-喜好程度(1-5)": st.q3_level || '',
                     "學生-喜歡/不喜歡原因": `${(st.q3_like || []).join(', ')} ${st.q3_like_other || ''} ${st.q3_neutral_text || ''} ${st.q3_dislike_text || ''}`,
+                    "學生-權益知悉": st.rights_1 === 'yes' ? '是' : '否',
+                    "學生-課程討論": st.rights_2 === 'agree' ? '同意' : (st.rights_2 === 'opinion' ? `有意見:${st.rights_2_opinion}` : '不知道'),
                     "學生-自我期許": st.self_encourage || '',
                     "學生-給老師的話": st.teacher_words || ''
                 };
@@ -595,6 +608,8 @@
         };
 
         const TeacherView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, teacherForm, setTeacherForm, submitFeedback, onSwitchRole }) => {
+            const [fontSize, setFontSize] = useState('text-lg');
+
             if(!selectedStudent || !isUserAuth) return (
                 <div className="max-w-sm mx-auto py-20 animate-fade-in">
                     <div className="bg-white p-10 rounded-[50px] shadow-2xl border-2 border-slate-200 text-center">
@@ -618,59 +633,104 @@
                 </div>
             );
             return (
-                <div className="max-w-3xl mx-auto p-4 md:p-8 animate-fade-in">
-                    <div className="bg-white rounded-[40px] shadow-xl overflow-hidden">
-                        <div className="bg-blue-600 p-8 text-white"><h2 className="text-3xl font-black mb-2">IEP 會議導師意見回饋</h2><p className="opacity-80 font-bold">學生：{selectedStudent.name}</p></div>
-                        <div className="p-8 md:p-12 space-y-10">
+                <div className={`max-w-4xl mx-auto p-4 md:p-8 teacher-theme ${fontSize} animate-fade-in`}>
+                    
+                    {/* 導師工具列 */}
+                    <div className="mb-8 bg-white/95 backdrop-blur border-b border-blue-100 shadow-sm px-4 py-2 flex justify-center rounded-2xl">
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-blue-700 font-black text-base"><Icon name="type" /> 字體大小</div>
+                            <div className="flex bg-slate-100 rounded-lg p-1">
+                                {[{l:'小',v:'text-base'}, {l:'中',v:'text-xl'}, {l:'大',v:'text-2xl'}].map(s => (
+                                    <button key={s.v} onClick={() => setFontSize(s.v)} className={`px-3 py-1 rounded-md transition-all font-bold ${fontSize === s.v ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>A{s.l}</button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-blue-500 pb-10">
+                        <div className="p-8 md:p-12 space-y-12">
+                            <div className="text-center mb-8">
+                                <h2 className="text-3xl font-black text-blue-800 mb-2">導師意見回饋表</h2>
+                                <p className="text-blue-500 font-bold opacity-60">學生：{selectedStudent.name}</p>
+                            </div>
+
                             <section>
-                                <h3 className="font-bold mb-2 text-blue-800 text-lg">(一) 您認為該生接受特殊教育後，學習情形有進步嗎？</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-1">※ 評分說明：5 分為進步很多，1 分為沒有進步</p>
-                                <div className="flex flex-wrap gap-2 md:gap-4 justify-start pl-4">
-                                    {[
-                                        {val: 5, label: '進步很多'},
-                                        {val: 4, label: '進步'},
-                                        {val: 3, label: '普通'},
-                                        {val: 2, label: '緩慢'},
-                                        {val: 1, label: '沒進步'}
-                                    ].map(opt => (
-                                        <label key={opt.val} className={`flex flex-col items-center justify-center gap-1 cursor-pointer w-20 h-20 rounded-2xl border-2 transition-all ${teacherForm.q1_level == opt.val ? 'bg-blue-500 border-blue-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}>
-                                            <input type="radio" name="q1_level" className="hidden" value={opt.val} checked={teacherForm.q1_level == opt.val} onChange={() => setTeacherForm({...teacherForm, q1_level: opt.val, q1_progress: opt.label})} />
-                                            <span className="text-2xl font-black">{opt.val}</span>
-                                            <span className="text-xs font-bold">{opt.label}</span>
-                                        </label>
-                                    ))}
+                                <div className="flex items-start gap-2 mb-4">
+                                    <h3 className="font-black text-blue-800 text-xl">(一) 您認為該生接受特殊教育後，學習情形有進步嗎？</h3>
+                                </div>
+                                <div className="pl-6 border-l-4 border-blue-100">
+                                    <p className="text-sm text-slate-500 mb-4 font-bold bg-slate-100 inline-block px-3 py-1 rounded-full">說明：5分為進步很多，1分為沒有進步</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        {[
+                                            {val: 5, label: '進步很多'},
+                                            {val: 4, label: '進步'},
+                                            {val: 3, label: '有進步'},
+                                            {val: 2, label: '進步緩慢'},
+                                            {val: 1, label: '沒有進步'}
+                                        ].map(opt => (
+                                            <label key={opt.val} className={`flex flex-col items-center justify-center gap-1 cursor-pointer w-20 h-20 rounded-2xl border-2 transition-all ${teacherForm.q1_level == opt.val ? 'bg-blue-500 border-blue-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}>
+                                                <input type="radio" name="q1_level" className="hidden" value={opt.val} checked={teacherForm.q1_level == opt.val} onChange={() => setTeacherForm({...teacherForm, q1_level: opt.val, q1_progress: opt.label})} />
+                                                <span className="text-3xl font-black">{opt.val}</span>
+                                            </label>
+                                        ))}
+                                    </div>
                                 </div>
                             </section>
+
                             <section>
-                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(二) 您認為本學期特殊教育的教學與輔導對該生最大的幫助為何？（可複選）</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4">
-                                    {TEACHER_Q2_OPTIONS.map(o=><label key={o} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors"><input type="checkbox" checked={(teacherForm.q2_help||[]).includes(o)} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,o]:c.filter(x=>x!==o)})}} className="w-5 h-5 accent-blue-600 rounded"/><span className="font-bold text-slate-600 text-sm">{o}</span></label>)}
-                                    <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                                        <input type="checkbox" checked={(teacherForm.q2_help||[]).includes('其他')} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,'其他']:c.filter(x=>x!=='其他')})}} className="w-5 h-5 accent-blue-600 rounded"/>
-                                        <span className="font-bold text-slate-600 text-sm">其他</span>
+                                <div className="flex items-start gap-2 mb-4">
+                                    <h3 className="font-black text-blue-800 text-xl">(二) 您認為本學期特殊教育的教學與輔導對該生最大的幫助為何？<span className="text-sm font-normal text-slate-400 ml-2">(可複選)</span></h3>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-6">
+                                    {TEACHER_Q2_OPTIONS.map(o=><label key={o} className={`flex items-center gap-2 cursor-pointer p-3 rounded-xl border transition-all hover:shadow-md ${ (teacherForm.q2_help||[]).includes(o) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-600' }`}><input type="checkbox" checked={(teacherForm.q2_help||[]).includes(o)} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,o]:c.filter(x=>x!==o)})}} className="hidden"/><div className={`w-5 h-5 rounded flex items-center justify-center border ${ (teacherForm.q2_help||[]).includes(o) ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300' }`}>{ (teacherForm.q2_help||[]).includes(o) && <Icon name="check" className="w-3 h-3"/>}</div><span className="font-bold text-sm">{o}</span></label>)}
+                                    <label className={`flex items-center gap-2 cursor-pointer p-3 rounded-xl border transition-all hover:shadow-md ${ (teacherForm.q2_help||[]).includes('其他') ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-600' }`}>
+                                        <input type="checkbox" checked={(teacherForm.q2_help||[]).includes('其他')} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,'其他']:c.filter(x=>x!=='其他')})}} className="hidden"/>
+                                        <div className={`w-5 h-5 rounded flex items-center justify-center border ${ (teacherForm.q2_help||[]).includes('其他') ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300' }`}>{ (teacherForm.q2_help||[]).includes('其他') && <Icon name="check" className="w-3 h-3"/>}</div>
+                                        <span className="font-bold text-sm">其他</span>
                                     </label>
                                 </div>
                                 {(teacherForm.q2_help||[]).includes('其他') && (
-                                    <div className="pl-4 mt-3 animate-fade-in">
-                                        <input className="w-full border-b-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 px-2 py-1" placeholder="請說明其他幫助..." value={teacherForm.q2_other||''} onChange={e=>setTeacherForm({...teacherForm, q2_other:e.target.value})} />
+                                    <div className="pl-6 mt-4 animate-fade-in">
+                                        <input className="w-full p-3 rounded-xl border-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 bg-white" placeholder="請說明其他幫助..." value={teacherForm.q2_other||''} onChange={e=>setTeacherForm({...teacherForm, q2_other:e.target.value})} />
                                     </div>
                                 )}
                             </section>
+
                             <section>
-                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(三) 該生除了學習以外，有無其他困擾您的問題？</h3>
-                                <div className="space-y-3 pl-4">
-                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='no'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'no', q3_desc:''})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">無</span></label>
-                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='yes'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'yes'})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">有，請說明：</span></label>
-                                    {teacherForm.q3_hasIssue==='yes' && <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600" rows="3" value={teacherForm.q3_desc||''} onChange={e=>setTeacherForm({...teacherForm, q3_desc:e.target.value})}/>}
+                                <div className="flex items-start gap-2 mb-4">
+                                    <h3 className="font-black text-blue-800 text-xl">(三) 該生除了學習以外，有無其他困擾您的問題？</h3>
+                                </div>
+                                <div className="flex gap-6 pl-6">
+                                    <label className={`flex items-center gap-3 cursor-pointer p-4 rounded-xl border-2 transition-all ${teacherForm.q3_hasIssue==='no' ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200'}`}>
+                                        <input type="radio" checked={teacherForm.q3_hasIssue==='no'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'no', q3_desc:''})} className="hidden"/>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${teacherForm.q3_hasIssue==='no' ? 'border-blue-500' : 'border-slate-300'}`}>{teacherForm.q3_hasIssue==='no' && <div className="w-3 h-3 bg-blue-500 rounded-full"/>}</div>
+                                        <span className="font-bold">無</span>
+                                    </label>
+                                    <label className={`flex items-center gap-3 cursor-pointer p-4 rounded-xl border-2 transition-all ${teacherForm.q3_hasIssue==='yes' ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200'}`}>
+                                        <input type="radio" checked={teacherForm.q3_hasIssue==='yes'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'yes'})} className="hidden"/>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${teacherForm.q3_hasIssue==='yes' ? 'border-blue-500' : 'border-slate-300'}`}>{teacherForm.q3_hasIssue==='yes' && <div className="w-3 h-3 bg-blue-500 rounded-full"/>}</div>
+                                        <span className="font-bold">有，請說明：</span>
+                                    </label>
+                                </div>
+                                {teacherForm.q3_hasIssue==='yes' && (
+                                    <div className="pl-6 mt-4 animate-fade-in">
+                                        <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600" rows="3" placeholder="請描述困擾問題..." value={teacherForm.q3_desc||''} onChange={e=>setTeacherForm({...teacherForm, q3_desc:e.target.value})}/>
+                                    </div>
+                                )}
+                            </section>
+
+                            <section>
+                                <div className="flex items-start gap-2 mb-4">
+                                    <h3 className="font-black text-blue-800 text-xl">(四) 其他補充說明</h3>
+                                </div>
+                                <div className="pl-6">
+                                    <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[120px]" placeholder="希望課程加入的內容..." value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
                                 </div>
                             </section>
-                            <section>
-                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(四) 其他補充說明：</h3>
-                                <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[100px]" placeholder="希望課程加入的內容..." value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
-                            </section>
+
                             <div className="flex gap-4 pt-4 border-t border-slate-100">
                                 <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫存返回</button>
-                                <button onClick={() => submitFeedback('teacher')} className="flex-1 bg-blue-600 text-white rounded-xl font-black text-lg shadow-xl hover:bg-blue-700">提交報告</button>
+                                <button onClick={() => submitFeedback('teacher')} className="flex-1 bg-blue-600 text-white rounded-xl font-black text-xl shadow-xl hover:bg-blue-700 hover:-translate-y-1 transition-all">提交報告</button>
                             </div>
                         </div>
                     </div>
@@ -853,6 +913,38 @@
                                 )}
                             </section>
 
+                            <hr className="border-slate-100" />
+
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("權益告知：我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
+                                    <h3 className="font-black text-slate-700">【權益告知】我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？</h3>
+                                </div>
+                                <div className="flex gap-4 pl-10">
+                                    <StudentRadio name="rights1" label="我知道" value="yes" checked={studentForm.rights_1 === 'yes'} onChange={() => setStudentForm({...studentForm, rights_1: 'yes'})} />
+                                    <StudentRadio name="rights1" label="我不知道" value="no" checked={studentForm.rights_1 === 'no'} onChange={() => setStudentForm({...studentForm, rights_1: 'no'})} />
+                                </div>
+                            </section>
+
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("權益告知：老師有告訴我並和我討論114學年我的課程安排與協助", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
+                                    <h3 className="font-black text-slate-700">【權益告知】老師有告訴我並和我討論114學年我的課程安排與協助</h3>
+                                </div>
+                                <div className="pl-10 space-y-2">
+                                    <StudentRadio name="rights2" label="我知道，且同意" value="agree" checked={studentForm.rights_2 === 'agree'} onChange={() => setStudentForm({...studentForm, rights_2: 'agree'})} />
+                                    <div className="w-full">
+                                        <StudentRadio name="rights2" label="我知道，但我有其他意見" value="opinion" checked={studentForm.rights_2 === 'opinion'} onChange={() => setStudentForm({...studentForm, rights_2: 'opinion'})} />
+                                        {studentForm.rights_2 === 'opinion' && (
+                                            <div className="pl-8 mt-2 animate-fade-in">
+                                                <OtherInput placeholder="請告訴老師你的想法..." value={studentForm.rights_2_opinion || ''} onChange={(e) => setStudentForm({...studentForm, rights_2_opinion: e.target.value})} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <StudentRadio name="rights2" label="我不知道" value="unknown" checked={studentForm.rights_2 === 'unknown'} onChange={() => setStudentForm({...studentForm, rights_2: 'unknown'})} />
+                                </div>
+                            </section>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("請給自己建議或鼓勵的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 請給自己建議或鼓勵的話 :)</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.self_encourage} onChange={e => setStudentForm({...studentForm, self_encourage: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, self_encourage: p.self_encourage + t}))} /></div></div>
                                 <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("想給潛能班老師的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 想給潛能班老師的話</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.teacher_words} onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, teacher_words: p.teacher_words + t}))} /></div></div>
@@ -889,7 +981,7 @@
                 q1: [], q1_other: '', q1_level: null, q1_neutral_text: '', q1_dislike_text: '',
                 q2: [], q2_other: '',
                 q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '',
-                rights_1: '', rights_2: '', self_encourage: '', teacher_words: ''
+                rights_1: '', rights_2: '', rights_2_opinion: '', self_encourage: '', teacher_words: ''
             });
 
             // Firebase 初始化
@@ -905,7 +997,7 @@
                     onAuthStateChanged(auth, (u) => {
                         setUser(u);
                         if (u) {
-                            const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), (snap) => {
+                            const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v3'), (snap) => {
                                 const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                                 list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
                                 setStudents(list);
@@ -941,7 +1033,7 @@
             const handleCreateStudent = async (name, code, manager) => {
                 if (!name || !code) return;
                 const { db, appId, addDoc, collection } = window.IEP_FB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v3'), {
                     name, accessCode: code, manager, createdAt: new Date().toISOString()
                 });
             };
@@ -949,13 +1041,13 @@
             const handleDeleteStudent = async (id) => {
                 if (!confirm("確定刪除？")) return;
                 const { db, appId, deleteDoc, doc } = window.IEP_FB;
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id));
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v3', id));
             };
 
             const handleUpdateStudent = async (id, data) => {
                 const { db, appId, updateDoc, doc } = window.IEP_FB;
                 try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id), data);
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v3', id), data);
                 } catch (e) { console.error("Update Error", e); }
             };
 
@@ -979,7 +1071,7 @@
             const submitFeedback = async (type) => {
                 if (!selectedStudent) return;
                 const { db, appId, updateDoc, doc } = window.IEP_FB;
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', selectedStudent.id);
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v3', selectedStudent.id);
                 if (type === 'teacher') {
                     await updateDoc(ref, { teacherFeedback: { ...teacherForm, submittedAt: new Date().toISOString() } });
                     clearDraft(selectedStudent.id);
@@ -995,7 +1087,7 @@
             const resetState = () => {
                 setIsAdminAuth(false); setIsUserAuth(false); setSelectedStudent(null);
                 setAccessCode(''); setAdminPwd(''); setTeacherForm({}); 
-                setStudentForm({ q1: [], q1_other: '', q1_level: null, q2: [], q2_other: '', q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '', rights_1: '', rights_2: '', self_encourage: '', teacher_words: '' });
+                setStudentForm({ q1: [], q1_other: '', q1_level: null, q1_neutral_text: '', q1_dislike_text: '', q2: [], q2_other: '', q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '', rights_1: '', rights_2: '', rights_2_opinion: '', self_encourage: '', teacher_words: '' });
                 setAuthError('');
             };
 
