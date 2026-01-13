@@ -216,12 +216,12 @@
                     "學生-填寫時間": st.submittedAt ? new Date(st.submittedAt).toLocaleString('zh-TW') : '未填寫',
                     "學生-權益1": st.rights_1 || '',
                     "學生-權益2": `${st.rights_2 || ''} ${st.rights_2 === '我知道，我有其他想法' ? '(' + (st.rights_2_other || '') + ')' : ''}`,
-                    "學生-幫助程度(1-5)": st.q1_level || '',
+                    "學生-幫助程度": st.q1_level || '',
                     "學生-具體幫助": `${(st.q1 || []).join(', ')} ${st.q1_other || ''}`,
                     "學生-有趣課程": `${(st.q2 || []).join(', ')} ${st.q2_other || ''}`,
-                    "學生-喜好程度(1-5)": st.q3_level || '',
-                    "學生-喜歡原因": `${(st.q3_like || []).join(', ')} ${st.q3_like_other || ''}`,
-                    "學生-不喜歡原因": `${(st.q3_dislike || []).join(', ')} ${st.q3_dislike_text || ''}`,
+                    "學生-喜歡程度": st.q3_level || '',
+                    "學生-正向原因": `${(st.q3_like || []).join(', ')} ${st.q3_like_other || ''}`,
+                    "學生-負向原因": `${(st.q3_dislike || []).join(', ')} ${st.q3_dislike_text || ''}`,
                     "學生-自我期許": st.self_encourage || '',
                     "學生-給老師的話": st.teacher_words || ''
                 };
@@ -256,7 +256,7 @@
             return <span ref={containerRef} className="inline-flex items-center justify-center"></span>;
         };
 
-        // 密碼輸入元件 (包含顯示/隱藏功能)
+        // 密碼輸入元件
         const PasswordInput = ({ value, onChange, placeholder, onEnter, themeColor = "blue" }) => {
             const [showPwd, setShowPwd] = useState(false);
             const focusColorClass = themeColor === 'green' ? 'focus:border-green-500' : 'focus:border-blue-600';
@@ -284,7 +284,7 @@
             );
         };
 
-        // 統一的登入卡片樣式元件
+        // 統一的登入卡片
         const UnifiedLoginCard = ({ title, iconName, colorClass, children, topBorderColor }) => (
             <div className="max-w-sm mx-auto py-10 md:py-20 animate-fade-in px-4">
                 <div className={`bg-white p-8 md:p-10 rounded-[40px] shadow-2xl border-2 border-slate-100 border-t-8 ${topBorderColor} text-center relative overflow-hidden`}>
@@ -297,6 +297,7 @@
             </div>
         );
 
+        // Navbar
         const Navbar = ({ onSwitchRole, currentRole }) => (
             <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-[60] px-4 md:px-8 h-20 flex items-center justify-between shadow-sm no-print font-black">
                 <div className="flex items-center gap-4 cursor-pointer" onClick={()=>onSwitchRole('home')}>
@@ -396,7 +397,7 @@
             return { voices, speak, supported };
         };
 
-        // --- 2. 學生端表單元件 ---
+        // --- Basic UI Components (Declared before use) ---
 
         const StudentCheckbox = ({ label, checked, onChange, onSpeak }) => (
             <label className={`flex items-start gap-3 cursor-pointer group p-3 rounded-2xl border-2 transition-all relative ${checked ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200 hover:border-green-300'}`}>
@@ -476,19 +477,19 @@
 
         // 新增不喜歡的原因選項
         const STD_Q3_DISLIKE_OPTS = [
-            "有些內容對我來說太簡單／太難",
-            "上課方式有時不太適合我",
-            "我比較喜歡在原班上課",
-            "有時會覺得學習壓力有點大",
-            "會擔心被同學知道我來潛能班",
-            "有時會覺得不好意思或緊張",
-            "我不太習慣和不認識的同學一起上課",
-            "會錯過原班我喜歡的課",
-            "上課時間讓我覺得有點累",
+            "有些內容對我來說太簡單／太難", 
+            "上課方式有時不太適合我", 
+            "我比較喜歡在原班上課", 
+            "有時會覺得學習壓力有點大", 
+            "會擔心被同學知道我來潛能班", 
+            "有時會覺得不好意思或緊張", 
+            "我不太習慣和不認識的同學一起上課", 
+            "會錯過原班我喜歡的課", 
+            "上課時間讓我覺得有點累", 
             "來回教室會影響我上課心情"
         ];
 
-        // --- 獨立頁面元件 ---
+        // --- Page Components ---
 
         const LandingPage = ({ onSwitchRole }) => (
             <div className="max-w-[1400px] mx-auto p-4 md:p-8 text-center py-10 md:py-20 animate-fade-in">
@@ -508,7 +509,6 @@
             </div>
         );
 
-        // 特師登入 (已統一風格)
         const SpedLogin = ({ adminPwd, setAdminPwd, handleLogin, authError }) => (
             <UnifiedLoginCard title="管理端驗證" iconName="settings" colorClass="bg-slate-800 text-white" topBorderColor="border-slate-800">
                 <PasswordInput value={adminPwd} onChange={e => setAdminPwd(e.target.value)} placeholder="請輸入管理代碼" onEnter={handleLogin} />
@@ -550,7 +550,6 @@
                         </button>
                     </div>
                     
-                    {/* 新增區塊 */}
                     <div className="bg-white p-8 rounded-[30px] shadow-sm mb-10 border border-slate-200">
                         <h3 className="font-black text-slate-500 mb-4 flex items-center gap-2"><Icon name="user-plus" className="w-5 h-5"/> 建立新個案</h3>
                         <div className="flex flex-col md:flex-row gap-6 items-end">
@@ -561,12 +560,10 @@
                         </div>
                     </div>
 
-                    {/* 列表區塊 */}
                     <div className="grid grid-cols-1 gap-6">
                         {students.map(s => (
                             <div key={s.id} className="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100 hover:shadow-xl transition-all relative">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                    {/* 學生資訊 / 編輯模式 */}
                                     {editingId === s.id ? (
                                         <div className="flex-1 flex gap-4 w-full">
                                             <input className="p-2 border rounded-xl flex-1" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="姓名" />
@@ -591,7 +588,6 @@
                                         </div>
                                     )}
 
-                                    {/* 狀態與操作 */}
                                     <div className="flex items-center gap-4 w-full md:w-auto justify-between">
                                         <div className="flex gap-3 text-sm">
                                             <div className={`px-3 py-1 rounded-xl flex items-center gap-1 border ${s.teacherFeedback ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}><Icon name="user-check" className="w-3 h-3" /> 導師{s.teacherFeedback ? 'OK' : ''}</div>
@@ -607,41 +603,40 @@
                                     </div>
                                 </div>
 
-                                {/* 展開詳情 */}
                                 {viewingId === s.id && (
                                     <div className="mt-6 pt-6 border-t-2 border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-                                        <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
-                                            <h4 className="font-black text-blue-700 mb-4 flex justify-between">導師回饋 {s.teacherFeedback?.submittedAt && <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded">{new Date(s.teacherFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
-                                            {s.teacherFeedback ? (
-                                                <div className="space-y-4 text-sm text-slate-700">
-                                                    <p><strong>進步情形：</strong>{s.teacherFeedback.q1_progress} {s.teacherFeedback.q1_level ? `(${s.teacherFeedback.q1_level}分)` : ''}</p>
-                                                    {s.teacherFeedback.q1_detail && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">{s.teacherFeedback.q1_detail}</p>}
-                                                    
-                                                    <p><strong>最大幫助：</strong>{s.teacherFeedback.q2_help?.join(', ')} {s.teacherFeedback.q2_other ? `其他：${s.teacherFeedback.q2_other}` : ''}</p>
-                                                    {s.teacherFeedback.q2_comment && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">建議內容：{s.teacherFeedback.q2_comment}</p>}
-                                                    
-                                                    <p><strong>困擾問題：</strong>{s.teacherFeedback.q3_hasIssue === 'yes' ? s.teacherFeedback.q3_desc : '無'}</p>
-                                                    <p><strong>補充說明：</strong>{s.teacherFeedback.q4_comment}</p>
-                                                </div>
-                                            ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
-                                        </div>
-                                        <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100">
-                                            <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
-                                            {s.studentFeedback ? (
-                                                <div className="space-y-4 text-sm text-slate-700">
-                                                    <p><strong>幫助程度 (1-5)：</strong>{s.studentFeedback.q1_level || '-'}</p>
-                                                    <p><strong>具體幫助：</strong>{s.studentFeedback.q1?.join(', ')} {s.studentFeedback.q1_other}</p>
-                                                    {s.studentFeedback.q1_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q1_neutral_text}</p>}
-                                                    {s.studentFeedback.q1_dislike_text && <p><strong>沒幫助原因：</strong>{s.studentFeedback.q1_dislike_text}</p>}
-                                                    <p><strong>有趣課程：</strong>{s.studentFeedback.q2?.join(', ')} {s.studentFeedback.q2_other}</p>
-                                                    <p><strong>喜好程度 (1-5)：</strong>{s.studentFeedback.q3_level || '-'}</p>
-                                                    <p><strong>喜歡原因：</strong>{s.studentFeedback.q3_like?.join(', ')} {s.studentFeedback.q3_like_other}</p>
-                                                    {s.studentFeedback.q3_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q3_neutral_text}</p>}
-                                                    <p><strong>不喜歡原因：</strong>{s.studentFeedback.q3_dislike_text}</p>
-                                                    <p><strong>給老師的話：</strong>{s.studentFeedback.teacher_words}</p>
-                                                </div>
-                                            ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
-                                        </div>
+                                            <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
+                                                <h4 className="font-black text-blue-700 mb-4 flex justify-between">導師回饋 {s.teacherFeedback?.submittedAt && <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded">{new Date(s.teacherFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
+                                                {s.teacherFeedback ? (
+                                                    <div className="space-y-4 text-sm text-slate-700">
+                                                        <p><strong>進步情形：</strong>{s.teacherFeedback.q1_progress} {s.teacherFeedback.q1_level ? `(${s.teacherFeedback.q1_level}分)` : ''}</p>
+                                                        {s.teacherFeedback.q1_detail && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">{s.teacherFeedback.q1_detail}</p>}
+                                                        
+                                                        <p><strong>最大幫助：</strong>{s.teacherFeedback.q2_help?.join(', ')} {s.teacherFeedback.q2_other ? `其他：${s.teacherFeedback.q2_other}` : ''}</p>
+                                                        {s.teacherFeedback.q2_comment && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">建議內容：{s.teacherFeedback.q2_comment}</p>}
+                                                        
+                                                        <p><strong>困擾問題：</strong>{s.teacherFeedback.q3_hasIssue === 'yes' ? s.teacherFeedback.q3_desc : '無'}</p>
+                                                        <p><strong>補充說明：</strong>{s.teacherFeedback.q4_comment}</p>
+                                                    </div>
+                                                ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
+                                            </div>
+                                            <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100">
+                                                <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
+                                                {s.studentFeedback ? (
+                                                    <div className="space-y-4 text-sm text-slate-700">
+                                                        <p><strong>幫助程度 (1-5)：</strong>{s.studentFeedback.q1_level || '-'}</p>
+                                                        <p><strong>具體幫助：</strong>{s.studentFeedback.q1?.join(', ')} {s.studentFeedback.q1_other}</p>
+                                                        {s.studentFeedback.q1_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q1_neutral_text}</p>}
+                                                        {s.studentFeedback.q1_dislike_text && <p><strong>沒幫助原因：</strong>{s.studentFeedback.q1_dislike_text}</p>}
+                                                        <p><strong>有趣課程：</strong>{s.studentFeedback.q2?.join(', ')} {s.studentFeedback.q2_other}</p>
+                                                        <p><strong>喜好程度 (1-5)：</strong>{s.studentFeedback.q3_level || '-'}</p>
+                                                        <p><strong>喜歡原因：</strong>{s.studentFeedback.q3_like?.join(', ')} {s.studentFeedback.q3_like_other}</p>
+                                                        {s.studentFeedback.q3_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q3_neutral_text}</p>}
+                                                        <p><strong>不喜歡原因：</strong>{s.studentFeedback.q3_dislike_text}</p>
+                                                        <p><strong>給老師的話：</strong>{s.studentFeedback.teacher_words}</p>
+                                                    </div>
+                                                ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
+                                            </div>
                                     </div>
                                 )}
                             </div>
@@ -651,11 +646,109 @@
             );
         };
 
+        const TeacherView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, teacherForm, setTeacherForm, submitFeedback, onSwitchRole }) => {
+            if(!selectedStudent || !isUserAuth) return (
+                <UnifiedLoginCard title="導師登入" iconName="clipboard-list" colorClass="bg-blue-600 text-white" topBorderColor="border-blue-600">
+                    {!selectedStudent ? (
+                        <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {students.map(s => (<button key={s.id} onClick={() => setSelectedStudent(s)} className="p-4 bg-slate-50 hover:bg-blue-600 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700">{s.name}</button>))}
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="mb-6 font-black text-blue-700 bg-blue-50 py-2 rounded-xl border border-blue-100">{selectedStudent.name}</div>
+                            <PasswordInput value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="驗證碼" onEnter={handleLogin} />
+                            {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
+                            <div className="flex gap-4">
+                                <button onClick={() => { setSelectedStudent(null); setAccessCode(''); }} className="flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">重選</button>
+                                <button onClick={handleLogin} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all">進入</button>
+                            </div>
+                        </div>
+                    )}
+                </UnifiedLoginCard>
+            );
+            return (
+                <div className="max-w-3xl mx-auto p-4 md:p-8 animate-fade-in pb-24">
+                    <div className="bg-white rounded-[40px] shadow-xl overflow-hidden">
+                        <div className="bg-blue-600 p-8 text-white"><h2 className="text-3xl font-black mb-2">IEP 會議導師意見回饋</h2><p className="opacity-80 font-bold">學生：{selectedStudent.name}</p></div>
+                        <div className="p-8 md:p-12 space-y-10">
+                            <section>
+                                <h3 className="font-bold mb-2 text-blue-800 text-lg">(一) 您認為該生本學期學習情形有進步嗎？</h3>
+                                <p className="text-sm text-slate-500 mb-4 pl-1">※ 評分說明：5 分為進步很多，1 分為沒有進步</p>
+                                <div className="flex flex-wrap gap-2 md:gap-4 justify-start pl-4 mb-4">
+                                    {[
+                                        {val: 5, label: '進步很多'},
+                                        {val: 4, label: '進步'},
+                                        {val: 3, label: '普通'},
+                                        {val: 2, label: '緩慢'},
+                                        {val: 1, label: '沒進步'}
+                                    ].map(opt => (
+                                        <label key={opt.val} className={`flex flex-col items-center justify-center gap-1 cursor-pointer w-20 h-20 rounded-2xl border-2 transition-all ${teacherForm.q1_level == opt.val ? 'bg-blue-50 border-blue-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}>
+                                            <input type="radio" name="q1_level" className="hidden" value={opt.val} checked={teacherForm.q1_level == opt.val} onChange={() => setTeacherForm({...teacherForm, q1_level: opt.val, q1_progress: opt.label})} />
+                                            <span className="text-2xl font-black">{opt.val}</span>
+                                            <span className="text-xs font-bold">{opt.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                {teacherForm.q1_level && (
+                                    <div className="pl-4 animate-fade-in">
+                                        <textarea 
+                                            className="w-full border-2 border-blue-100 bg-blue-50/50 rounded-xl p-3 outline-none focus:border-blue-500 text-sm" 
+                                            rows="2" 
+                                            placeholder={
+                                                teacherForm.q1_level >= 4 ? "請簡述進步的地方..." :
+                                                teacherForm.q1_level == 3 ? "補充說明..." :
+                                                "可進一步說明情形..."
+                                            }
+                                            value={teacherForm.q1_detail || ''} 
+                                            onChange={e => setTeacherForm({...teacherForm, q1_detail: e.target.value})}
+                                        />
+                                    </div>
+                                )}
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(二) 您認為潛能班可以持續對該生哪項度的教學與輔導?</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-4 mb-4">
+                                    {TEACHER_Q2_OPTIONS.map(o=><label key={o} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors"><input type="checkbox" checked={(teacherForm.q2_help||[]).includes(o)} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,o]:c.filter(x=>x!==o)})}} className="w-5 h-5 accent-blue-600 rounded"/><span className="font-bold text-slate-600 text-sm">{o}</span></label>)}
+                                    <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                                        <input type="checkbox" checked={(teacherForm.q2_help||[]).includes('其他')} onChange={e=>{const c=teacherForm.q2_help||[]; setTeacherForm({...teacherForm, q2_help:e.target.checked?[...c,'其他']:c.filter(x=>x!=='其他')})}} className="w-5 h-5 accent-blue-600 rounded"/>
+                                        <span className="font-bold text-slate-600 text-sm">其他</span>
+                                    </label>
+                                </div>
+                                {(teacherForm.q2_help||[]).includes('其他') && (
+                                    <div className="pl-4 mb-4 animate-fade-in">
+                                        <input className="w-full border-b-2 border-slate-200 outline-none focus:border-blue-500 font-bold text-blue-700 px-2 py-1" placeholder="請說明其他幫助..." value={teacherForm.q2_other||''} onChange={e=>setTeacherForm({...teacherForm, q2_other:e.target.value})} />
+                                    </div>
+                                )}
+                                <div className="pl-4">
+                                    <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-600 min-h-[80px] text-sm" placeholder="(例如:希望課程加入的內容)" value={teacherForm.q2_comment||''} onChange={e=>setTeacherForm({...teacherForm, q2_comment:e.target.value})}/>
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(三) 該生有無其他困擾您的問題？</h3>
+                                <div className="space-y-3 pl-4">
+                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='no'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'no', q3_desc:''})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">無</span></label>
+                                    <label className="flex items-center gap-3 cursor-pointer"><input type="radio" checked={teacherForm.q3_hasIssue==='yes'} onChange={()=>setTeacherForm({...teacherForm, q3_hasIssue:'yes'})} className="w-5 h-5 accent-blue-600"/><span className="font-bold">有，請說明：</span></label>
+                                    {teacherForm.q3_hasIssue==='yes' && <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600" rows="3" value={teacherForm.q3_desc||''} onChange={e=>setTeacherForm({...teacherForm, q3_desc:e.target.value})}/>}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="font-bold mb-3 text-blue-800 text-lg">(四) 其他補充說明：</h3>
+                                <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-600 min-h-[100px]" placeholder="與家長溝通事宜、鼓勵學生的話等等..." value={teacherForm.q4_comment||''} onChange={e=>setTeacherForm({...teacherForm, q4_comment:e.target.value})}/>
+                            </section>
+                            <div className="flex gap-4 pt-4 border-t border-slate-100">
+                                <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫存返回</button>
+                                <button onClick={() => submitFeedback('teacher')} className="flex-1 bg-blue-600 text-white rounded-xl font-black text-lg shadow-xl hover:bg-blue-700">提交報告</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const StudentView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, studentForm, setStudentForm, submitFeedback, onSwitchRole, handleStudentCheck }) => {
             const [fontSize, setFontSize] = useState('text-lg');
             const { voices, speak, supported: ttsSupported } = useSpeechSynthesis();
             const [selectedVoice, setSelectedVoice] = useState(null);
-            // 語速預設為 1
             const [speechRate, setSpeechRate] = useState(1);
 
             useEffect(() => {
@@ -686,215 +779,139 @@
             );
 
             return (
-                <div className={`student-theme ${fontSize} animate-fade-in`}>
-                    {/* Fixed Toolbar */}
-                    <div className="fixed top-20 left-0 right-0 z-40 flex justify-center pointer-events-none">
-                        <div className="w-full max-w-4xl px-4 md:px-8 pointer-events-auto">
-                            <div className="bg-white/95 backdrop-blur border border-green-100 shadow-md px-4 py-3 flex justify-center rounded-b-2xl md:rounded-2xl md:mt-4 transition-all">
-                                <div className="flex flex-col md:flex-row items-center gap-4 justify-between w-full">
-                                    <div className="flex items-center gap-2 text-green-700 font-black text-base"><Icon name="accessibility" /> 輔助工具</div>
-                                    <div className="flex flex-wrap gap-4 items-center justify-center w-full md:w-auto text-sm">
-                                        <div className="flex bg-slate-100 rounded-lg p-1">
-                                            {[{l:'小',v:'text-base'}, {l:'中',v:'text-xl'}, {l:'大',v:'text-2xl'}].map(s => (
-                                                <button key={s.v} onClick={() => setFontSize(s.v)} className={`px-3 py-1 rounded-md transition-all font-bold ${fontSize === s.v ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>A{s.l}</button>
-                                            ))}
-                                        </div>
-                                        <div className="flex flex-col md:flex-row gap-2 items-center">
-                                            <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-                                                <span className="text-xs text-slate-400 font-bold">語速</span>
-                                                <input 
-                                                    type="range" 
-                                                    min="0.5" 
-                                                    max="2" 
-                                                    step="0.25" 
-                                                    value={speechRate} 
-                                                    onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                                                    className="w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                                />
-                                                <span className="text-xs w-8 text-center font-bold text-green-600">{speechRate}x</span>
-                                            </div>
-
-                                            <div className="flex gap-2">
-                                                <select className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 max-w-[120px]" onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value))}>
-                                                    {voices.map(v => <option key={v.name} value={v.name}>{v.name.replace('Microsoft', '').replace('Google', '')}</option>)}
-                                                </select>
-                                                <button onClick={() => speak("這是新的朗讀語音。", selectedVoice, speechRate)} className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 flex items-center gap-1 transition-colors"><Icon name="play" className="w-3 h-3"/> 試聽</button>
-                                            </div>
-                                        </div>
+                <div className={`student-theme ${fontSize} animate-fade-in pb-32`}>
+                    <div className="w-full flex justify-center py-4">
+                        <div className="w-full max-w-4xl px-4 md:px-8">
+                            <div className="bg-white/95 border border-green-100 shadow-md px-4 py-3 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between">
+                                <div className="flex items-center gap-2 text-green-700 font-black text-base"><Icon name="accessibility" /> 輔助工具</div>
+                                <div className="flex flex-wrap gap-4 items-center justify-center text-sm">
+                                    <div className="flex bg-slate-100 rounded-lg p-1">
+                                        {[{l:'小',v:'text-base'},{l:'中',v:'text-xl'},{l:'大',v:'text-2xl'}].map(s => (
+                                            <button key={s.v} onClick={() => setFontSize(s.v)} className={`px-3 py-1 rounded-md font-bold ${fontSize === s.v ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>A{s.l}</button>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                                        <span className="text-xs font-bold text-slate-400">語速</span>
+                                        <input type="range" min="0.5" max="2" step="0.25" value={speechRate} onChange={e => setSpeechRate(parseFloat(e.target.value))} className="w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
+                                        <span className="text-xs font-bold text-green-600">{speechRate}x</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <select className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 max-w-[120px]" onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value))}>
+                                            {voices.map(v => <option key={v.name} value={v.name}>{v.name.replace('Microsoft', '').replace('Google', '')}</option>)}
+                                        </select>
+                                        <button onClick={() => speak("這是朗讀測試。", selectedVoice, speechRate)} className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 flex items-center gap-1 transition-colors"><Icon name="play" className="w-3 h-3"/> 試聽</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    {/* Content Area */}
-                    <div className="max-w-4xl mx-auto p-4 md:p-8 pt-24 md:pt-32">
-                        <div className="bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-green-500 pb-10">
-                            <div className="p-8 md:p-12 space-y-12">
-                                <h2 className="text-3xl font-black text-center text-green-700">自我評估調查表</h2>
+                    <div className="max-w-4xl mx-auto p-4 md:p-8">
+                        <div className="bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-green-500 p-8 md:p-12 space-y-12">
+                            <h2 className="text-3xl font-black text-center text-green-700">自我評估調查表</h2>
 
-                                {/* 權益告知第一題 */}
-                                <section className="space-y-4">
-                                    <div className="flex items-start gap-2">
-                                        <button onClick={()=>speak("權益告知：我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
-                                        <h3 className="font-black text-green-800">【權益告知】我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-10">
-                                        {["我知道", "我不知道，需要老師說明"].map(opt => (
-                                            <label key={opt} className={`p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_1 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}`}>
-                                                <input type="radio" className="hidden" name="rights_1" value={opt} checked={studentForm.rights_1 === opt} onChange={e=>setStudentForm({...studentForm, rights_1: e.target.value})} />
-                                                <span className="font-black">{opt}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </section>
-
-                                {/* 權益告知第二題 */}
-                                <section className="space-y-4">
-                                    <div className="flex items-start gap-2">
-                                        <button onClick={()=>speak("權益告知：老師有告訴我並和我討論這一學年度我的課程安排與協助", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
-                                        <h3 className="font-black text-green-800">【權益告知】老師有告訴我並和我討論這一學年度我的課程安排與協助</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-3 pl-10">
-                                        {["我知道，我同意", "我知道，我有其他想法", "我不知道，需要老師說明"].map(opt => (
-                                            <label key={opt} className={`p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_2 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}`}>
-                                                <input type="radio" className="hidden" name="rights_2" value={opt} checked={studentForm.rights_2 === opt} onChange={e=>setStudentForm({...studentForm, rights_2: e.target.value})} />
-                                                <span className="font-black">{opt}</span>
-                                            </label>
-                                        ))}
-                                        {studentForm.rights_2 === "我知道，我有其他想法" && (
-                                            <OtherInput placeholder="請寫下你的想法..." value={studentForm.rights_2_other || ''} onChange={e => setStudentForm({...studentForm, rights_2_other: e.target.value})} />
-                                        )}
-                                    </div>
-                                </section>
-                                
-                                {/* Q1 */}
-                                <section className="space-y-4">
-                                    <div className="flex items-start gap-2">
-                                        <button onClick={()=>speak("第一題，我覺得到潛能班上課，對自己的幫助的程度？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                        <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己幫助的程度？</h3>
-                                    </div>
-                                    
-                                    <LikertScale 
-                                        name="q1_level" 
-                                        value={studentForm.q1_level} 
-                                        onChange={(v) => setStudentForm({ ...studentForm, q1_level: v })}
-                                        speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
-                                        options={[
-                                            {val: 5, emoji: '🤩', label: '非常有幫助'},
-                                            {val: 4, emoji: '😊', label: '有幫助'},
-                                            {val: 3, emoji: '😐', label: '普通'},
-                                            {val: 2, emoji: '😕', label: '沒什麼幫助'},
-                                            {val: 1, emoji: '😫', label: '完全沒幫助'}
-                                        ]}
-                                    />
-
-                                    {(studentForm.q1_level == 5 || studentForm.q1_level == 4) && (
-                                        <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
-                                            <p className="text-sm text-slate-400 font-bold mb-2">覺得有幫助的地方 (可複選)：</p>
-                                            {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q1.includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                            <div className="block">
-                                                <StudentCheckbox label="其他" checked={studentForm.q1.includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
-                                                {studentForm.q1.includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other} onChange={(e) => setStudentForm({ ...studentForm, q1_other: e.target.value })} />}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(studentForm.q1_level == 3) && (
-                                        <div className="mt-6 pl-10 animate-fade-in border-l-4 border-amber-300">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <h4 className="font-bold text-amber-600 text-base">🤔 有什麼想補充說明的嗎？</h4>
-                                            </div>
-                                            <div className="relative">
-                                                <textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-amber-400 outline-none bg-white min-h-[100px]" placeholder="請寫下來..." value={studentForm.q1_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q1_neutral_text: e.target.value})} />
-                                                <SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q1_neutral_text: (p.q1_neutral_text||'') + txt}))} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(studentForm.q1_level == 2 || studentForm.q1_level == 1) && (
-                                        <div className="mt-6 pl-10 animate-fade-in border-l-4 border-red-300">
-                                            <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-red-500 text-base">🌧️ 覺得沒有幫助的原因：</h4></div>
-                                            <div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-red-400 outline-none bg-white min-h-[100px]" placeholder="請告訴老師原因..." value={studentForm.q1_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q1_dislike_text: e.target.value})} /><SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q1_dislike_text: (p.q1_dislike_text||'') + txt}))} /></div>
-                                        </div>
-                                    )}
-                                </section>
-
-                                <section className="space-y-4">
-                                    <div className="flex items-start gap-2">
-                                        <button onClick={()=>speak("第二題，選出這學期我覺得有學到東西又有趣的課，可以選好多個", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                        <h3 className="font-black text-green-800">2. 選出這學期我覺得有學到東西又有趣的課<span className="text-sm font-normal text-slate-500 block mt-1">(可複選)</span></h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10">
-                                        {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q2.includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <div className="block sm:col-span-2">
-                                            <StudentCheckbox label="其他" checked={studentForm.q2.includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
-                                            {studentForm.q2.includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other} onChange={(e) => setStudentForm({ ...studentForm, q2_other: e.target.value })} />}
-                                        </div>
-                                    </div>
-                                </section>
-
-                                <section className="space-y-4 bg-green-50/50 p-6 rounded-3xl border border-green-100">
-                                    <div className="flex items-start gap-2">
-                                        <button onClick={()=>speak("第三題，我喜歡到潛能班上課嗎？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                        <h3 className="font-black text-green-800">3. 我喜歡到潛能班上課嗎？</h3>
-                                    </div>
-                                    
-                                    <LikertScale 
-                                        name="q3_level" 
-                                        value={studentForm.q3_level} 
-                                        onChange={(v) => setStudentForm({ ...studentForm, q3_level: v })}
-                                        speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
-                                        options={[
-                                            {val: 5, emoji: '🥰', label: '超級喜歡'},
-                                            {val: 4, emoji: '😀', label: '喜歡'},
-                                            {val: 3, emoji: '🙂', label: '還好'},
-                                            {val: 2, emoji: '☹️', label: '不太喜歡'},
-                                            {val: 1, emoji: '😠', label: '很不喜歡'}
-                                        ]}
-                                    />
-
-                                    {(studentForm.q3_level == 5 || studentForm.q3_level == 4) && (
-                                        <div className="mt-6 pl-10 animate-fade-in border-l-4 border-green-300">
-                                            <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-green-700 text-base">✨ 我喜歡到潛能班上課的原因：</h4></div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_like.includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                                <div className="block sm:col-span-2"><StudentCheckbox label="其他" checked={studentForm.q3_like.includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />{studentForm.q3_like.includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other} onChange={(e) => setStudentForm({ ...studentForm, q3_like_other: e.target.value })} />}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(studentForm.q3_level == 3) && (
-                                        <div className="mt-6 pl-10 animate-fade-in border-l-4 border-amber-300">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <h4 className="font-bold text-amber-600 text-base">🤔 有什麼想補充說明的嗎？</h4>
-                                            </div>
-                                            <div className="relative">
-                                                <textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-amber-400 outline-none bg-white min-h-[100px]" placeholder="請寫下來..." value={studentForm.q3_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q3_neutral_text: e.target.value})} />
-                                                <SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q3_neutral_text: (p.q3_neutral_text||'') + txt}))} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(studentForm.q3_level == 2 || studentForm.q3_level == 1) && (
-                                        <div className="mt-6 pl-10 animate-fade-in border-l-4 border-red-300">
-                                            <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-red-500 text-base">🌧️ 我不喜歡到潛能班上課的原因：</h4></div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
-                                                {STD_Q3_DISLIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_dislike.includes(opt)} onChange={() => handleStudentCheck('q3_dislike', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                                <div className="block sm:col-span-2">
-                                                    <StudentCheckbox label="其他" checked={studentForm.q3_dislike.includes('其他')} onChange={() => handleStudentCheck('q3_dislike', '其他')} />
-                                                    {studentForm.q3_dislike.includes('其他') && <OtherInput placeholder="請告訴老師其他原因..." value={studentForm.q3_dislike_text} onChange={(e) => setStudentForm({ ...studentForm, q3_dislike_text: e.target.value })} />}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </section>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("請給自己建議或鼓勵的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 請給自己建議或鼓勵的話 :)</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.self_encourage} onChange={e => setStudentForm({...studentForm, self_encourage: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, self_encourage: p.self_encourage + t}))} /></div></div>
-                                    <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("想給潛能班老師的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 想給潛能班老師的話</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.teacher_words} onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, teacher_words: p.teacher_words + t}))} /></div></div>
+                            {/* 權益告知第一題 */}
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("權益告知：我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
+                                    <h3 className="font-black text-green-800">【權益告知】我知道來資源班上課是自己的權益，而且是通過申請才能入班的嗎？</h3>
                                 </div>
-
-                                <div className="pt-6 flex gap-4 text-base">
-                                    <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫時離開</button>
-                                    <button onClick={() => submitFeedback('student')} className="flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-200 hover:bg-green-600 hover:shadow-2xl transition-all hover:-translate-y-1">完成提交</button>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-10">
+                                    {["我知道", "我不知道，需要老師說明"].map(opt => (
+                                        <label key={opt} className={`p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_1 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}`}>
+                                            <input type="radio" className="hidden" name="rights_1" value={opt} checked={studentForm.rights_1 === opt} onChange={e=>setStudentForm({...studentForm, rights_1: e.target.value})} />
+                                            <span className="font-black">{opt}</span>
+                                        </label>
+                                    ))}
                                 </div>
+                            </section>
+
+                            {/* 權益告知第二題 */}
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("權益告知：老師有告訴我並和我討論這一學年度我的課程安排與協助", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
+                                    <h3 className="font-black text-green-800">【權益告知】老師有告訴我並和我討論這一學年度我的課程安排與協助</h3>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3 pl-10">
+                                    {["我知道，我同意", "我知道，我有其他想法", "我不知道，需要老師說明"].map(opt => (
+                                        <label key={opt} className={`p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_2 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}`}>
+                                            <input type="radio" className="hidden" name="rights_2" value={opt} checked={studentForm.rights_2 === opt} onChange={e=>setStudentForm({...studentForm, rights_2: e.target.value})} />
+                                            <span className="font-black">{opt}</span>
+                                        </label>
+                                    ))}
+                                    {studentForm.rights_2 === "我知道，我有其他想法" && (
+                                        <OtherInput placeholder="請寫下你的想法..." value={studentForm.rights_2_other || ''} onChange={e => setStudentForm({...studentForm, rights_2_other: e.target.value})} />
+                                    )}
+                                </div>
+                            </section>
+                            
+                            {/* Q1 */}
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第一題，我覺得到潛能班上課，對自己幫助的程度？", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
+                                    <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己幫助的程度？</h3>
+                                </div>
+                                <LikertScale name="q1_level" value={studentForm.q1_level} onChange={v => setStudentForm({...studentForm, q1_level: v})} speak={speak} selectedVoice={selectedVoice} speechRate={speechRate} options={[{val:5,emoji:'🤩',label:'非常有幫助'},{val:4,emoji:'😊',label:'有幫助'},{val:3,emoji:'😐',label:'普通'},{val:2,emoji:'😕',label:'沒什麼幫助'},{val:1,emoji:'😫',label:'完全沒幫助'}]} />
+                                {(studentForm.q1_level >= 4) && (
+                                    <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
+                                        <p className="text-sm font-bold text-slate-400">覺得有幫助的地方 (可複選)：</p>
+                                        {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q1||[]).includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                        <StudentCheckbox label="其他" checked={(studentForm.q1||[]).includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
+                                        {(studentForm.q1||[]).includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other || ''} onChange={e => setStudentForm({...studentForm, q1_other: e.target.value})} />}
+                                    </div>
+                                )}
+                                {studentForm.q1_level == 3 && <div className="pl-10"><OtherInput placeholder="有什麼想補充的嗎？" value={studentForm.q1_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q1_neutral_text: e.target.value})} /></div>}
+                                {studentForm.q1_level <= 2 && <div className="pl-10"><OtherInput placeholder="為什麼覺得沒什麼幫助呢？" value={studentForm.q1_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q1_dislike_text: e.target.value})} /></div>}
+                            </section>
+
+                            {/* Q2 */}
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第二題，選出這學期我覺得有學到東西又有趣的課，可以選好多個", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
+                                    <h3 className="font-black text-green-800">2. 選出這學期我覺得有學到東西又有趣的課 (可複選)</h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10">
+                                    {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q2||[]).includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                    <div className="col-span-1 sm:col-span-2">
+                                        <StudentCheckbox label="其他" checked={(studentForm.q2||[]).includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
+                                        {(studentForm.q2||[]).includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other || ''} onChange={e => setStudentForm({...studentForm, q2_other: e.target.value})} />}
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Q3 */}
+                            <section className="space-y-4">
+                                <div className="flex items-start gap-2">
+                                    <button onClick={()=>speak("第三題，我喜歡到潛能班上課嗎？", selectedVoice, speechRate)} className="text-green-500"><Icon name="volume-2" className="w-6 h-6"/></button>
+                                    <h3 className="font-black text-green-800">3. 我喜歡到潛能班上課嗎？</h3>
+                                </div>
+                                <LikertScale name="q3_level" value={studentForm.q3_level} onChange={v => setStudentForm({...studentForm, q3_level: v})} speak={speak} selectedVoice={selectedVoice} speechRate={speechRate} options={[{val:5,emoji:'🥰',label:'超級喜歡'},{val:4,emoji:'😀',label:'喜歡'},{val:3,emoji:'🙂',label:'還好'},{val:2,emoji:'☹️',label:'不太喜歡'},{val:1,emoji:'😠',label:'很不喜歡'}]} />
+                                {(studentForm.q3_level >= 4) && (
+                                    <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
+                                        <p className="text-sm font-bold text-slate-400">喜歡到潛能班上課的原因 (可複選)：</p>
+                                        {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q3_like||[]).includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                        <StudentCheckbox label="其他" checked={(studentForm.q3_like||[]).includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />
+                                        {(studentForm.q3_like||[]).includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other || ''} onChange={e => setStudentForm({...studentForm, q3_like_other: e.target.value})} />}
+                                    </div>
+                                )}
+                                {(studentForm.q3_level <= 2) && (
+                                    <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-red-100 animate-fade-in">
+                                        <p className="text-sm font-bold text-red-400">不喜歡到潛能班上課的原因 (可複選)：</p>
+                                        {STD_Q3_DISLIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q3_dislike||[]).includes(opt)} onChange={() => handleStudentCheck('q3_dislike', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                        <StudentCheckbox label="其他" checked={(studentForm.q3_dislike||[]).includes('其他')} onChange={() => handleStudentCheck('q3_dislike', '其他')} />
+                                        {(studentForm.q3_dislike||[]).includes('其他') && <OtherInput placeholder="請寫下原因..." value={studentForm.q3_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q3_dislike_text: e.target.value})} />}
+                                    </div>
+                                )}
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2 relative"><label className="font-black text-green-700">📌 給自己的鼓勵</label><textarea className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.self_encourage || ''} onChange={e => setStudentForm({...studentForm, self_encourage: e.target.value})} /><SpeechInputButton onTranscript={t=>setStudentForm(p=>({...p, self_encourage:(p.self_encourage||'')+t}))} /></div>
+                                <div className="space-y-2 relative"><label className="font-black text-green-700">📌 想給老師的話</label><textarea className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.teacher_words || ''} onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} /><SpeechInputButton onTranscript={t=>setStudentForm(p=>({...p, teacher_words:(p.teacher_words||'')+t}))} /></div>
+                            </div>
+
+                            <div className="pt-6 flex gap-4">
+                                <button onClick={() => onSwitchRole('home')} className="px-6 py-4 rounded-xl font-bold text-slate-400">暫時離開</button>
+                                <button onClick={() => submitFeedback('student')} className="flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-100">完成提交</button>
                             </div>
                         </div>
                     </div>
@@ -932,22 +949,38 @@
                 const init = async () => {
                     if (!window.IEP_FB) return;
                     const { auth, db, appId, collection, onSnapshot, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.IEP_FB;
+                    
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                        else await signInAnonymously(auth);
-                    } catch (e) { console.error(e); }
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) { 
+                        console.error("Auth Error:", e); 
+                    }
                     
                     onAuthStateChanged(auth, (u) => {
                         setUser(u);
                         if (u) {
-                            const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), (snap) => {
-                                const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                                list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-                                setStudents(list);
-                                setLoading(false);
-                            });
+                            // 加入錯誤處理回呼 (error callback) 以防止 "Uncaught Error"
+                            const unsub = onSnapshot(
+                                collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), 
+                                (snap) => {
+                                    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                                    list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+                                    setStudents(list);
+                                    setLoading(false);
+                                },
+                                (error) => {
+                                    console.error("Firestore Snapshot Error:", error);
+                                    setLoading(false); // 即使出錯也停止 loading 避免畫面卡住
+                                }
+                            );
                             return () => unsub();
-                        } else setLoading(false);
+                        } else {
+                            setLoading(false);
+                        }
                     });
                 };
                 init();
@@ -976,7 +1009,7 @@
             const handleCreateStudent = async (name, code, manager) => {
                 if (!name || !code) return;
                 const { db, appId, addDoc, collection } = window.IEP_FB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2'), {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), {
                     name, accessCode: code, manager, createdAt: new Date().toISOString()
                 });
             };
@@ -984,13 +1017,13 @@
             const handleDeleteStudent = async (id) => {
                 if (!confirm("確定刪除？")) return;
                 const { db, appId, deleteDoc, doc } = window.IEP_FB;
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id));
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id));
             };
 
             const handleUpdateStudent = async (id, data) => {
                 const { db, appId, updateDoc, doc } = window.IEP_FB;
                 try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', id), data);
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id), data);
                 } catch (e) { console.error("Update Error", e); }
             };
 
@@ -1014,7 +1047,7 @@
             const submitFeedback = async (type) => {
                 if (!selectedStudent) return;
                 const { db, appId, updateDoc, doc } = window.IEP_FB;
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'iep_feedback_final_v2', selectedStudent.id);
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, selectedStudent.id);
                 if (type === 'teacher') {
                     await updateDoc(ref, { teacherFeedback: { ...teacherForm, submittedAt: new Date().toISOString() } });
                     clearDraft(selectedStudent.id);
@@ -1060,7 +1093,6 @@
                         {role === 'teacher' && <TeacherView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} teacherForm={teacherForm} setTeacherForm={setTeacherForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} />}
                         {role === 'student' && <StudentView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} studentForm={studentForm} setStudentForm={setStudentForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} handleStudentCheck={handleStudentCheck} />}
                     </main>
-                    <div className="w-full text-center py-8 text-slate-300 text-xs no-print">安東潛能班</div>
                 </div>
             );
         };
