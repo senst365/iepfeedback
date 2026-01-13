@@ -108,6 +108,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
+        const DATA_COLLECTION = 'iep_feedback_final_v2'; // 定義資料集合名稱常數
 
         // --- Helper: Generate Word HTML Content ---
         const generateWordContent = (s) => {
@@ -814,7 +815,7 @@
                                 <section className="space-y-4">
                                     <div className="flex items-start gap-2">
                                         <button onClick={()=>speak("第一題，我覺得到潛能班上課，對自己的幫助的程度？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                        <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己的幫助程度？</h3>
+                                        <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己幫助的程度？</h3>
                                     </div>
                                     
                                     <LikertScale 
