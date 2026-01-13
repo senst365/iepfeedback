@@ -612,7 +612,7 @@
                                                         <p><strong>進步情形：</strong>{s.teacherFeedback.q1_progress} {s.teacherFeedback.q1_level ? `(${s.teacherFeedback.q1_level}分)` : ''}</p>
                                                         {s.teacherFeedback.q1_detail && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">{s.teacherFeedback.q1_detail}</p>}
                                                         
-                                                        <p><strong>最大幫助：</strong>{s.teacherFeedback.q2_help?.join(', ')} {s.teacherFeedback.q2_other ? `其他：${s.teacherFeedback.q2_other}` : ''}</p>
+                                                        <p><strong>幫助方向：</strong>{s.teacherFeedback.q2_help?.join(', ')} {s.teacherFeedback.q2_other ? `其他：${s.teacherFeedback.q2_other}` : ''}</p>
                                                         {s.teacherFeedback.q2_comment && <p className="pl-4 border-l-2 border-blue-300 text-slate-500">建議內容：{s.teacherFeedback.q2_comment}</p>}
                                                         
                                                         <p><strong>困擾問題：</strong>{s.teacherFeedback.q3_hasIssue === 'yes' ? s.teacherFeedback.q3_desc : '無'}</p>
