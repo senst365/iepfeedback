@@ -523,6 +523,7 @@
                                                 <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
                                                 {s.studentFeedback ? (
                                                     <div className="space-y-4 text-sm text-slate-700">
+                                                        {/* Added Rights Section in Detail View */}
                                                         <div className="bg-white/60 p-3 rounded-xl border border-green-200 mb-3">
                                                             <p className="font-bold text-green-800 mb-1 border-b border-green-100 pb-1">【權益告知】</p>
                                                             <p>1. 入班權益：{s.studentFeedback.rights_1 || '未填'}</p>
