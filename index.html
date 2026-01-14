@@ -355,11 +355,22 @@
         const LikertScale = ({ name, value, onChange, options, speak, selectedVoice, speechRate }) => (
             <div className="flex flex-wrap gap-2 md:gap-4 justify-center py-4">
                 {options.map((opt, idx) => (
-                    <label key={opt.val} className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 md:w-28 text-center ${value == opt.val ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white border-slate-100 text-slate-500'}`}>
+                    <label 
+                        key={opt.val} 
+                        className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 md:w-28 text-center ${value == opt.val ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-green-300 text-slate-500'}`}
+                        onClick={(e) => {
+                             if (value == opt.val) {
+                                 e.preventDefault();
+                                 onChange(null);
+                             }
+                        }}
+                    >
                         <input type="radio" name={name} className="hidden" value={opt.val} checked={value == opt.val} onChange={() => onChange(opt.val)} />
                         <span className="text-2xl">{opt.emoji}</span>
                         <span className="text-xs font-black">{opt.label}</span>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(opt.label, selectedVoice, speechRate); }} className="p-1"><Icon name="volume-2" className="w-3 h-3" /></button>
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(opt.label, selectedVoice, speechRate); }} className={`p-1 rounded-full ${value == opt.val ? 'text-green-200 hover:bg-green-600' : 'text-slate-300 hover:text-green-500'}`}>
+                            <Icon name="volume-2" className="w-3 h-3" />
+                        </button>
                     </label>
                 ))}
             </div>
@@ -512,7 +523,6 @@
                                                 <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
                                                 {s.studentFeedback ? (
                                                     <div className="space-y-4 text-sm text-slate-700">
-                                                        {/* Added Rights Section in Detail View */}
                                                         <div className="bg-white/60 p-3 rounded-xl border border-green-200 mb-3">
                                                             <p className="font-bold text-green-800 mb-1 border-b border-green-100 pb-1">【權益告知】</p>
                                                             <p>1. 入班權益：{s.studentFeedback.rights_1 || '未填'}</p>
@@ -577,7 +587,16 @@
                                         {val: 2, label: '緩慢'},
                                         {val: 1, label: '沒進步'}
                                     ].map(opt => (
-                                        <label key={opt.val} className={`flex flex-col items-center justify-center gap-1 cursor-pointer w-20 h-20 rounded-2xl border-2 transition-all ${teacherForm.q1_level == opt.val ? 'bg-blue-500 border-blue-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}>
+                                        <label 
+                                            key={opt.val} 
+                                            className={`flex flex-col items-center justify-center gap-1 cursor-pointer w-20 h-20 rounded-2xl border-2 transition-all ${teacherForm.q1_level == opt.val ? 'bg-blue-500 border-blue-500 text-white shadow-lg scale-105' : 'bg-white border-slate-200 hover:border-blue-300 text-slate-500'}`}
+                                            onClick={(e) => {
+                                                if (teacherForm.q1_level == opt.val) {
+                                                    e.preventDefault();
+                                                    setTeacherForm({...teacherForm, q1_level: null, q1_progress: ''});
+                                                }
+                                            }}
+                                        >
                                             <input type="radio" name="q1_level" className="hidden" value={opt.val} checked={teacherForm.q1_level == opt.val} onChange={() => setTeacherForm({...teacherForm, q1_level: opt.val, q1_progress: opt.label})} />
                                             <span className="text-2xl font-black">{opt.val}</span>
                                             <span className="text-xs font-bold">{opt.label}</span>
@@ -767,13 +786,29 @@
                                     <button onClick={()=>speak("第一題，我覺得到潛能班上課，對自己幫助的程度？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
                                     <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己幫助的程度？</h3>
                                 </div>
-                                <LikertScale name="q1_level" value={studentForm.q1_level} onChange={v => setStudentForm({...studentForm, q1_level: v})} speak={speak} selectedVoice={selectedVoice} speechRate={speechRate} options={[{val:5,emoji:'🤩',label:'非常有幫助'},{val:4,emoji:'😊',label:'有幫助'},{val:3,emoji:'😐',label:'普通'},{val:2,emoji:'😕',label:'沒什麼幫助'},{val:1,emoji:'😫',label:'完全沒幫助'}]} />
-                                {(studentForm.q1_level >= 4) && (
+                                
+                                <LikertScale 
+                                    name="q1_level" 
+                                    value={studentForm.q1_level} 
+                                    onChange={(v) => setStudentForm({ ...studentForm, q1_level: v })}
+                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
+                                    options={[
+                                        {val: 5, emoji: '🤩', label: '非常有幫助'},
+                                        {val: 4, emoji: '😊', label: '有幫助'},
+                                        {val: 3, emoji: '😐', label: '普通'},
+                                        {val: 2, emoji: '😕', label: '沒什麼幫助'},
+                                        {val: 1, emoji: '😫', label: '完全沒幫助'}
+                                    ]}
+                                />
+
+                                {(studentForm.q1_level == 5 || studentForm.q1_level == 4) && (
                                     <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
-                                        <p className="text-sm font-bold text-slate-400">覺得有幫助的地方 (可複選)：</p>
-                                        {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q1||[]).includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <StudentCheckbox label="其他" checked={(studentForm.q1||[]).includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
-                                        {(studentForm.q1||[]).includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other || ''} onChange={e => setStudentForm({...studentForm, q1_other: e.target.value})} />}
+                                        <p className="text-sm text-slate-400 font-bold mb-2">覺得有幫助的地方 (可複選)：</p>
+                                        {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q1.includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                        <div className="block">
+                                            <StudentCheckbox label="其他" checked={studentForm.q1.includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
+                                            {studentForm.q1.includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other || ''} onChange={e => setStudentForm({...studentForm, q1_other: e.target.value})} />}
+                                        </div>
                                     </div>
                                 )}
                                 {studentForm.q1_level == 3 && <div className="pl-10"><OtherInput placeholder="有什麼想補充的嗎？" value={studentForm.q1_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q1_neutral_text: e.target.value})} /></div>}
@@ -787,27 +822,42 @@
                                     <h3 className="font-black text-green-800">2. 選出這學期我覺得有學到東西又有趣的課<span className="text-sm font-normal text-slate-500 block mt-1">(可複選)</span></h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10">
-                                    {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q2||[]).includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                    {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q2.includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
                                     <div className="block sm:col-span-2">
-                                        <StudentCheckbox label="其他" checked={(studentForm.q2||[]).includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
-                                        {(studentForm.q2||[]).includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other || ''} onChange={e => setStudentForm({...studentForm, q2_other: e.target.value})} />}
+                                        <StudentCheckbox label="其他" checked={studentForm.q2.includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
+                                        {studentForm.q2.includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other || ''} onChange={e => setStudentForm({...studentForm, q2_other: e.target.value})} />}
                                     </div>
                                 </div>
                             </section>
 
                             {/* Q3 */}
-                            <section className="space-y-4">
+                            <section className="space-y-4 bg-green-50/50 p-6 rounded-3xl border border-green-100">
                                 <div className="flex items-start gap-2">
                                     <button onClick={()=>speak("第三題，我喜歡到潛能班上課嗎？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
                                     <h3 className="font-black text-green-800">3. 我喜歡到潛能班上課嗎？</h3>
                                 </div>
-                                <LikertScale name="q3_level" value={studentForm.q3_level} onChange={v => setStudentForm({...studentForm, q3_level: v})} speak={speak} selectedVoice={selectedVoice} speechRate={speechRate} options={[{val:5,emoji:'🥰',label:'超級喜歡'},{val:4,emoji:'😀',label:'喜歡'},{val:3,emoji:'🙂',label:'還好'},{val:2,emoji:'☹️',label:'不太喜歡'},{val:1,emoji:'😠',label:'很不喜歡'}]} />
-                                {(studentForm.q3_level >= 4) && (
-                                    <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
-                                        <p className="text-sm font-bold text-slate-400">喜歡到潛能班上課的原因 (可複選)：</p>
-                                        {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q3_like||[]).includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <StudentCheckbox label="其他" checked={(studentForm.q3_like||[]).includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />
-                                        {(studentForm.q3_like||[]).includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other || ''} onChange={e => setStudentForm({...studentForm, q3_like_other: e.target.value})} />}
+                                
+                                <LikertScale 
+                                    name="q3_level" 
+                                    value={studentForm.q3_level} 
+                                    onChange={(v) => setStudentForm({ ...studentForm, q3_level: v })}
+                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
+                                    options={[
+                                        {val: 5, emoji: '🥰', label: '超級喜歡'},
+                                        {val: 4, emoji: '😀', label: '喜歡'},
+                                        {val: 3, emoji: '🙂', label: '還好'},
+                                        {val: 2, emoji: '☹️', label: '不太喜歡'},
+                                        {val: 1, emoji: '😠', label: '很不喜歡'}
+                                    ]}
+                                />
+
+                                {(studentForm.q3_level == 5 || studentForm.q3_level == 4) && (
+                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-green-300">
+                                        <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-green-700 text-base">✨ 我喜歡到潛能班上課的原因：</h4></div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_like.includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                            <div className="block sm:col-span-2"><StudentCheckbox label="其他" checked={studentForm.q3_like.includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />{studentForm.q3_like.includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other || ''} onChange={e => setStudentForm({...studentForm, q3_like_other: e.target.value})} />}</div>
+                                        </div>
                                     </div>
                                 )}
                                 {(studentForm.q3_level == 3) && (
@@ -824,9 +874,9 @@
                                 {(studentForm.q3_level == 2 || studentForm.q3_level == 1) && (
                                     <div className="mt-6 pl-10 animate-fade-in border-l-4 border-red-100 animate-fade-in">
                                         <p className="text-sm font-bold text-red-400">不喜歡到潛能班上課的原因 (可複選)：</p>
-                                        {STD_Q3_DISLIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={(studentForm.q3_dislike||[]).includes(opt)} onChange={() => handleStudentCheck('q3_dislike', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <StudentCheckbox label="其他" checked={(studentForm.q3_dislike||[]).includes('其他')} onChange={() => handleStudentCheck('q3_dislike', '其他')} />
-                                        {(studentForm.q3_dislike||[]).includes('其他') && <OtherInput placeholder="請寫下原因..." value={studentForm.q3_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q3_dislike_text: e.target.value})} />}
+                                        {STD_Q3_DISLIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_dislike.includes(opt)} onChange={() => handleStudentCheck('q3_dislike', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
+                                        <StudentCheckbox label="其他" checked={studentForm.q3_dislike.includes('其他')} onChange={() => handleStudentCheck('q3_dislike', '其他')} />
+                                        {studentForm.q3_dislike.includes('其他') && <OtherInput placeholder="請寫下原因..." value={studentForm.q3_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q3_dislike_text: e.target.value})} />}
                                     </div>
                                 )}
                             </section>
@@ -836,8 +886,8 @@
                                 <div className="space-y-2 relative"><label className="font-black text-green-700 flex items-center gap-2"><button onClick={()=>speak("想給潛能班老師的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>📌 想給潛能班老師的話</label><div className="relative"><textarea className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" value={studentForm.teacher_words} onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} /><SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, teacher_words: p.teacher_words + t}))} /></div></div>
                             </div>
 
-                            <div className="pt-6 flex gap-4">
-                                <button onClick={() => onSwitchRole('home')} className="px-6 py-4 rounded-xl font-bold text-slate-400">暫時離開</button>
+                            <div className="pt-6 flex gap-4 text-base">
+                                <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫時離開</button>
                                 <button onClick={() => submitFeedback('student')} className="flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-100">完成提交</button>
                             </div>
                         </div>
