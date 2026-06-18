@@ -9,7 +9,6 @@
     <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- JSZip & FileSaver for Export -->
@@ -79,43 +78,108 @@
     </style>
 </head>
 <body class="text-slate-900 overflow-x-hidden font-black">
-    <div id="root"></div>
+    <div id="root">
+        <div id="startup-loading" class="min-h-screen flex items-center justify-center text-slate-500 font-black">
+            系統載入中...
+        </div>
+    </div>
+    <div id="startup-error" style="display:none;max-width:760px;margin:40px auto;padding:24px;border:2px solid #fecaca;border-radius:20px;background:#fff1f2;color:#991b1b;font-family:'Noto Sans TC',sans-serif;line-height:1.7;white-space:pre-wrap;"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-
-        const myFirebaseConfig = {
-            apiKey: "AIzaSyAozXuBefTBeCMiDVNR2SU8fdLKngGxIEI",
-            authDomain: "feedback-3678f.firebaseapp.com",
-            projectId: "feedback-3678f",
-            storageBucket: "feedback-3678f.firebasestorage.app",
-            messagingSenderId: "899641152244",
-            appId: "1:899641152244:web:0fc472c893c5ef4e0e04a1"
+    <script>
+        window.__IEP_APP_STARTED__ = false;
+        window.showStartupError = function (error) {
+            console.error(error);
+            const box = document.getElementById('startup-error');
+            const root = document.getElementById('root');
+            if (!box) return;
+            const hasVisibleApp = root && root.innerText && root.innerText.trim() && !root.innerText.includes('系統載入中');
+            if (window.__IEP_APP_STARTED__ && hasVisibleApp) return;
+            if (root) root.style.display = 'none';
+            box.style.display = 'block';
+            const message = error && error.message ? error.message : String(error || '未知錯誤');
+            box.textContent = '系統無法啟動。\n\n可能原因：網路無法載入 React、Firebase 或其他外部套件。\n請確認網路連線，並使用最新版 Chrome 或 Edge 開啟下載後的 HTML 檔案。\n\n錯誤訊息：' + message;
         };
-
-        const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        
-        try {
-            const app = initializeApp(config);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'iep-feedback-final-v3'; 
-            window.IEP_FB = { auth, db, appId, collection, doc, setDoc, onSnapshot, updateDoc, deleteDoc, addDoc, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
-        } catch (e) { console.error("Firebase Init Error", e); }
+        window.addEventListener('error', function (event) {
+            const error = event.error || new Error(event.message || '外部程式載入失敗');
+            window.showStartupError(error);
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+            const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason || '未處理的非同步錯誤'));
+            window.showStartupError(reason);
+        });
     </script>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef, useCallback } = React;
-        const DATA_COLLECTION = 'iep_feedback_final_v2'; 
+    <script>
+        window.IEP_FB_READY = (async function () {
+            try {
+                const firebaseImports = Promise.all([
+                    import("https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js"),
+                    import("https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js"),
+                    import("https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js")
+                ]);
+                const importTimeout = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Firebase 套件載入逾時')), 15000);
+                });
+                const [appModule, authModule, firestoreModule] = await Promise.race([firebaseImports, importTimeout]);
 
-        // --- Helper: Generate Word HTML Content ---
-        const generateWordContent = (s) => {
-            const teacherDate = s.teacherFeedback?.submittedAt ? new Date(s.teacherFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
-            const studentDate = s.studentFeedback?.submittedAt ? new Date(s.studentFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
+                const myFirebaseConfig = {
+                    apiKey: "AIzaSyAozXuBefTBeCMiDVNR2SU8fdLKngGxIEI",
+                    authDomain: "feedback-3678f.firebaseapp.com",
+                    projectId: "feedback-3678f",
+                    storageBucket: "feedback-3678f.firebasestorage.app",
+                    messagingSenderId: "899641152244",
+                    appId: "1:899641152244:web:0fc472c893c5ef4e0e04a1"
+                };
 
-            return `
+                let config = myFirebaseConfig;
+                if (typeof __firebase_config !== 'undefined') {
+                    try {
+                        config = typeof __firebase_config === 'string'
+                            ? JSON.parse(__firebase_config)
+                            : __firebase_config;
+                    } catch (configError) {
+                        console.warn('外部 Firebase 設定解析失敗，改用原始設定。', configError);
+                    }
+                }
+
+                const app = appModule.initializeApp(config);
+                const auth = authModule.getAuth(app);
+                const db = firestoreModule.getFirestore(app);
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'iep-feedback-final-v3';
+
+                window.IEP_FB = {
+                    auth, db, appId,
+                    collection: firestoreModule.collection,
+                    doc: firestoreModule.doc,
+                    setDoc: firestoreModule.setDoc,
+                    onSnapshot: firestoreModule.onSnapshot,
+                    updateDoc: firestoreModule.updateDoc,
+                    deleteDoc: firestoreModule.deleteDoc,
+                    addDoc: firestoreModule.addDoc,
+                    query: firestoreModule.query,
+                    orderBy: firestoreModule.orderBy,
+                    signInAnonymously: authModule.signInAnonymously,
+                    onAuthStateChanged: authModule.onAuthStateChanged,
+                    signInWithCustomToken: authModule.signInWithCustomToken
+                };
+                return window.IEP_FB;
+            } catch (error) {
+                window.IEP_FB_ERROR = error;
+                console.error("Firebase Init Error", error);
+                return null;
+            }
+        })();
+    </script>
+
+    <script>
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+const DATA_COLLECTION = 'iep_feedback_final_v2';
+// --- Helper: Generate Word HTML Content ---
+const generateWordContent = (s) => {
+    var _a, _b, _c, _d, _e;
+    const teacherDate = ((_a = s.teacherFeedback) === null || _a === void 0 ? void 0 : _a.submittedAt) ? new Date(s.teacherFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
+    const studentDate = ((_b = s.studentFeedback) === null || _b === void 0 ? void 0 : _b.submittedAt) ? new Date(s.studentFeedback.submittedAt).toLocaleString('zh-TW') : '未填寫';
+    return `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
                 <head><meta charset='utf-8'><title>${s.name} - IEP 回饋單</title>
                 <style>
@@ -172,7 +236,7 @@
                             <p>權益告知：${s.studentFeedback.rights_2 || '無'} ${s.studentFeedback.rights_2 === '我知道，我有其他想法' ? `(想法：${s.studentFeedback.rights_2_other || ''})` : ''}</p>
 
                             <h3>1. 覺得潛能班的幫助 (程度: ${s.studentFeedback.q1_level || '-'})</h3>
-                            ${(s.studentFeedback.q1?.length > 0) ? `<p>項目：${s.studentFeedback.q1.join('、')} ${s.studentFeedback.q1_other ? `、${s.studentFeedback.q1_other}` : ''}</p>` : ''}
+                            ${(((_c = s.studentFeedback.q1) === null || _c === void 0 ? void 0 : _c.length) > 0) ? `<p>項目：${s.studentFeedback.q1.join('、')} ${s.studentFeedback.q1_other ? `、${s.studentFeedback.q1_other}` : ''}</p>` : ''}
                             ${s.studentFeedback.q1_neutral_text ? `<p>普通補充：${s.studentFeedback.q1_neutral_text}</p>` : ''}
                             ${s.studentFeedback.q1_dislike_text ? `<p>沒幫助的原因：${s.studentFeedback.q1_dislike_text}</p>` : ''}
                             
@@ -180,8 +244,8 @@
                             <p>${(s.studentFeedback.q2 || []).join('、')} ${s.studentFeedback.q2_other ? `、${s.studentFeedback.q2_other}` : ''}</p>
                             
                             <h3>3. 喜歡來潛能班上課嗎？ (程度: ${s.studentFeedback.q3_level || '-'})</h3>
-                            ${s.studentFeedback.q3_like?.length > 0 ? `<p>喜歡的原因：${s.studentFeedback.q3_like.join('、')} ${s.studentFeedback.q3_like_other || ''}</p>` : ''}
-                            ${s.studentFeedback.q3_dislike?.length > 0 ? `<p>不喜歡的原因：${s.studentFeedback.q3_dislike.join('、')} ${s.studentFeedback.q3_dislike_text || ''}</p>` : ''}
+                            ${((_d = s.studentFeedback.q3_like) === null || _d === void 0 ? void 0 : _d.length) > 0 ? `<p>喜歡的原因：${s.studentFeedback.q3_like.join('、')} ${s.studentFeedback.q3_like_other || ''}</p>` : ''}
+                            ${((_e = s.studentFeedback.q3_dislike) === null || _e === void 0 ? void 0 : _e.length) > 0 ? `<p>不喜歡的原因：${s.studentFeedback.q3_dislike.join('、')} ${s.studentFeedback.q3_dislike_text || ''}</p>` : ''}
                             ${s.studentFeedback.q3_neutral_text ? `<p>普通補充：${s.studentFeedback.q3_neutral_text}</p>` : ''}
                             
                             <h3>4. 自我期許與建議</h3>
@@ -192,1156 +256,1020 @@
                     ` : '<p style="color:red">尚未填寫</p>'}
                 </body></html>
             `;
-        };
-
-        const downloadSingleDoc = (student) => {
-            const content = generateWordContent(student);
-            const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
-            window.saveAs(blob, `${student.name}_IEP回饋表.doc`);
-        };
-
-        const downloadAllZip = async (students) => {
-            const zip = new JSZip();
-            students.forEach(s => { zip.file(`${s.name}_IEP回饋表.doc`, generateWordContent(s)); });
-
-            if (window.XLSX) {
-                const excelData = students.map(s => {
-                    const t = s.teacherFeedback || {};
-                    const st = s.studentFeedback || {};
-                    return {
-                        "學生姓名": s.name, "個管老師": s.manager, "驗證碼": s.accessCode,
-                        "導師-填寫時間": t.submittedAt ? new Date(t.submittedAt).toLocaleString('zh-TW') : '未填寫',
-                        "導師-整體進步情形": `${t.tq1_progress || ''} (${t.tq1_level || ''})`,
-                        "導師-教學輔導向度": `${(t.tq2_help || []).join(', ')} ${t.tq2_other ? '(其他:' + t.tq2_other + ')' : ''}`,
-                        "導師-優勢與亮點": t.tq3_strength || '',
-                        "導師-策略類化情形": t.tq4_generalization || '',
-                        "導師-評量作業調整": `${t.tq5_adjustment || ''} ${t.tq5_adjustment === '其他需求' ? '(' + t.tq5_other + ')' : ''}`,
-                        "導師-原班適應挑戰": t.tq6_challenge === 'yes' ? t.tq6_desc : (t.tq6_challenge === 'no' ? '無' : ''),
-                        "導師-親師溝通協作": `${t.tq7_communication || ''} ${t.tq7_communication === '希望潛能班協助與家長溝通的事項' ? '(' + t.tq7_other + ')' : ''}`,
-                        "導師-補充與建議": t.tq8_comment || '',
-                        "學生-填寫時間": st.submittedAt ? new Date(st.submittedAt).toLocaleString('zh-TW') : '未填寫',
-                        "學生-權益告知": `${st.rights_2 || ''} ${st.rights_2 === '我知道，我有其他想法' ? '(' + (st.rights_2_other || '') + ')' : ''}`,
-                        "學生-幫助程度": st.q1_level || '',
-                        "學生-具體幫助": `${(st.q1 || []).join(', ')} ${st.q1_other || ''}`,
-                        "學生-有趣課程": `${(st.q2 || []).join(', ')} ${st.q2_other || ''}`,
-                        "學生-喜歡程度": st.q3_level || '',
-                        "學生-正向原因": `${(st.q3_like || []).join(', ')} ${st.q3_like_other || ''}`,
-                        "學生-負向原因": `${(st.q3_dislike || []).join(', ')} ${st.q3_dislike_text || ''}`,
-                        "學生-自我期許": st.self_encourage || '',
-                        "學生-下學期期許": st.next_semester_hope || '',
-                        "學生-給老師的話": st.teacher_words || ''
-                    };
-                });
-                const worksheet = XLSX.utils.json_to_sheet(excelData);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "彙整總表");
-                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                zip.file("IEP回饋彙整表.xlsx", excelBuffer);
-            }
-            const content = await zip.generateAsync({ type: "blob" });
-            window.saveAs(content, `IEP回饋表彙整_${new Date().toLocaleDateString()}.zip`);
-        };
-
-        // --- Basic UI Components ---
-
-        const Icon = ({ name, className = "w-5 h-5" }) => {
-            const containerRef = useRef(null);
-            useEffect(() => {
-                if (window.lucide && containerRef.current) {
-                    containerRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
-                    window.lucide.createIcons({ attrs: { class: className }, nameAttr: 'data-lucide' });
-                }
-            }, [name, className]);
-            return <span ref={containerRef} className="inline-flex items-center justify-center"></span>;
-        };
-
-        const Notification = ({ message, type = 'success', onClose }) => {
-            useEffect(() => {
-                const timer = setTimeout(onClose, 1000);
-                return () => clearTimeout(timer);
-            }, [onClose]);
-            
-            const colors = type === 'error' ? 'bg-red-500 shadow-red-200' : 'bg-slate-800 shadow-slate-300';
-            
-            return (
-                <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] ${colors} text-white px-8 py-4 rounded-2xl shadow-xl font-black animate-fade-in flex items-center gap-3 min-w-[300px] justify-center`}>
-                    <Icon name={type === 'error' ? "alert-circle" : "check-circle"} className="w-6 h-6" />
-                    <span className="text-lg tracking-wide">{message}</span>
-                </div>
-            );
-        };
-
-        const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmBtnColor = "bg-red-500 hover:bg-red-600 shadow-red-200", confirmText = "確定刪除" }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4">
-                    <div className="bg-white p-8 rounded-[30px] shadow-2xl max-w-sm w-full border border-slate-100 transform transition-all scale-100">
-                        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 mx-auto">
-                             <Icon name="alert-triangle" className="w-8 h-8" />
-                        </div>
-                        <h3 className="text-2xl font-black text-slate-800 mb-3 text-center">{title}</h3>
-                        <p className="text-slate-500 mb-8 font-bold text-center leading-relaxed text-sm">{message}</p>
-                        <div className="flex gap-4">
-                            <button onClick={onCancel} className="flex-1 py-4 rounded-2xl font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">取消</button>
-                            <button onClick={onConfirm} className={`flex-1 py-4 rounded-2xl font-black text-white hover:-translate-y-1 shadow-lg transition-all ${confirmBtnColor}`}>{confirmText}</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const PasswordInput = ({ value, onChange, placeholder, onEnter, themeColor = "blue" }) => {
-            const [showPwd, setShowPwd] = useState(false);
-            const focusColorClass = themeColor === 'green' ? 'focus:border-green-500' : 'focus:border-blue-600';
-            const iconColorClass = themeColor === 'green' ? 'text-green-500' : 'text-blue-600';
-            return (
-                <div className="relative w-full mb-6 group">
-                    <input 
-                        type={showPwd ? "text" : "password"} 
-                        placeholder={placeholder} 
-                        className={`w-full border-2 border-slate-200 rounded-2xl px-6 py-4 text-center font-black outline-none ${focusColorClass} bg-slate-50 shadow-inner text-xl tracking-widest transition-colors pr-12`} 
-                        value={value} onChange={onChange} onKeyDown={e => e.key === 'Enter' && onEnter && onEnter()}
-                    />
-                    <button type="button" onClick={() => setShowPwd(!showPwd)} className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-slate-200 transition-all ${showPwd ? iconColorClass : 'text-slate-400'}`}>
-                        <Icon name={showPwd ? "eye-off" : "eye"} />
-                    </button>
-                </div>
-            );
-        };
-
-        const UnifiedLoginCard = ({ title, iconName, colorClass, children, topBorderColor }) => (
-            <div className="max-w-sm mx-auto py-10 md:py-20 animate-fade-in px-4">
-                <div className={`bg-white p-8 md:p-10 rounded-[40px] shadow-2xl border-2 border-slate-100 border-t-8 ${topBorderColor} text-center relative overflow-hidden`}>
-                    <div className={`${colorClass} w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg transform -rotate-3 hover:rotate-0 transition-transform`}><Icon name={iconName} className="w-10 h-10" /></div>
-                    <h2 className={`text-2xl font-black mb-8 uppercase tracking-widest ${colorClass.replace('bg-', 'text-').replace('text-white', '')}`}>{title}</h2>
-                    {children}
-                </div>
-            </div>
-        );
-
-        const Navbar = ({ onSwitchRole, currentRole }) => (
-            <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-[60] px-4 md:px-8 h-20 flex items-center justify-between shadow-sm no-print font-black">
-                <div className="flex items-center gap-4 cursor-pointer" onClick={()=>onSwitchRole('home')}>
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:scale-105 transition-transform"><Icon name="home" /></div>
-                    <span className="font-black text-xl tracking-tighter uppercase hidden md:inline text-slate-800">IEP 會議回饋系統</span>
-                </div>
-                <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
-                    {[{id: 'sped', label: '特師'}, {id: 'teacher', label: '導師'}, {id: 'student', label: '學生'}].map(item => (
-                        <button key={item.id} onClick={() => onSwitchRole(item.id)} className={`px-4 md:px-5 py-2 rounded-xl text-xs md:text-sm font-black transition-all ${currentRole.includes(item.id) ? 'bg-white shadow-sm text-slate-800 scale-100' : 'text-slate-400 hover:text-slate-600 scale-95'}`}>{item.label}</button>
-                    ))}
-                </div>
-            </nav>
-        );
-
-        const useSpeechRecognition = () => {
-            const [isRecording, setIsRecording] = useState(false);
-            const recognitionRef = useRef(null);
-            useEffect(() => {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (SpeechRecognition) {
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.lang = 'zh-TW';
-                }
-            }, []);
-            const startListening = (onResult) => {
-                if (recognitionRef.current) {
-                    setIsRecording(true);
-                    recognitionRef.current.onresult = (e) => { onResult(e.results[0][0].transcript); setIsRecording(false); };
-                    recognitionRef.current.onend = () => setIsRecording(false);
-                    recognitionRef.current.start();
-                }
+};
+const downloadSingleDoc = (student) => {
+    const content = generateWordContent(student);
+    const blob = new Blob(['\ufeff', content], { type: 'application/msword' });
+    window.saveAs(blob, `${student.name}_IEP回饋表.doc`);
+};
+const downloadAllZip = async (students) => {
+    const zip = new JSZip();
+    students.forEach(s => { zip.file(`${s.name}_IEP回饋表.doc`, generateWordContent(s)); });
+    if (window.XLSX) {
+        const excelData = students.map(s => {
+            const t = s.teacherFeedback || {};
+            const st = s.studentFeedback || {};
+            return {
+                "學生姓名": s.name, "個管老師": s.manager, "驗證碼": s.accessCode,
+                "導師-填寫時間": t.submittedAt ? new Date(t.submittedAt).toLocaleString('zh-TW') : '未填寫',
+                "導師-整體進步情形": `${t.tq1_progress || ''} (${t.tq1_level || ''})`,
+                "導師-教學輔導向度": `${(t.tq2_help || []).join(', ')} ${t.tq2_other ? '(其他:' + t.tq2_other + ')' : ''}`,
+                "導師-優勢與亮點": t.tq3_strength || '',
+                "導師-策略類化情形": t.tq4_generalization || '',
+                "導師-評量作業調整": `${t.tq5_adjustment || ''} ${t.tq5_adjustment === '其他需求' ? '(' + t.tq5_other + ')' : ''}`,
+                "導師-原班適應挑戰": t.tq6_challenge === 'yes' ? t.tq6_desc : (t.tq6_challenge === 'no' ? '無' : ''),
+                "導師-親師溝通協作": `${t.tq7_communication || ''} ${t.tq7_communication === '希望潛能班協助與家長溝通的事項' ? '(' + t.tq7_other + ')' : ''}`,
+                "導師-補充與建議": t.tq8_comment || '',
+                "學生-填寫時間": st.submittedAt ? new Date(st.submittedAt).toLocaleString('zh-TW') : '未填寫',
+                "學生-權益告知": `${st.rights_2 || ''} ${st.rights_2 === '我知道，我有其他想法' ? '(' + (st.rights_2_other || '') + ')' : ''}`,
+                "學生-幫助程度": st.q1_level || '',
+                "學生-具體幫助": `${(st.q1 || []).join(', ')} ${st.q1_other || ''}`,
+                "學生-有趣課程": `${(st.q2 || []).join(', ')} ${st.q2_other || ''}`,
+                "學生-喜歡程度": st.q3_level || '',
+                "學生-正向原因": `${(st.q3_like || []).join(', ')} ${st.q3_like_other || ''}`,
+                "學生-負向原因": `${(st.q3_dislike || []).join(', ')} ${st.q3_dislike_text || ''}`,
+                "學生-自我期許": st.self_encourage || '',
+                "學生-下學期期許": st.next_semester_hope || '',
+                "學生-給老師的話": st.teacher_words || ''
             };
-            return { isRecording, startListening, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
-        };
-
-        const SpeechInputButton = ({ onTranscript, colorClass = "text-slate-500 hover:text-blue-600" }) => {
-            const { isRecording, startListening, supported } = useSpeechRecognition();
-            if (!supported) return null;
-            return (
-                <button onClick={(e) => { e.preventDefault(); startListening(onTranscript); }} className={`absolute bottom-2 right-2 p-2 rounded-full transition-all z-10 ${isRecording ? 'bg-red-500 text-white recording-pulse' : 'bg-white/80 shadow-sm border ' + colorClass}`}>
-                    <Icon name={isRecording ? "mic-off" : "mic"} className="w-4 h-4" />
-                </button>
-            );
-        };
-
-        const useSpeechSynthesis = () => {
-            const [voices, setVoices] = useState([]);
-            const [supported, setSupported] = useState(false);
-            useEffect(() => {
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                    setSupported(true);
-                    const updateVoices = () => {
-                        const vs = window.speechSynthesis.getVoices();
-                        const zhVoices = vs.filter(v => v.lang.includes('zh') || v.lang.includes('TW'));
-                        setVoices(zhVoices.length > 0 ? zhVoices : vs);
-                    };
-                    updateVoices(); window.speechSynthesis.onvoiceschanged = updateVoices;
+        });
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "彙整總表");
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        zip.file("IEP回饋彙整表.xlsx", excelBuffer);
+    }
+    const content = await zip.generateAsync({ type: "blob" });
+    window.saveAs(content, `IEP回饋表彙整_${new Date().toLocaleDateString()}.zip`);
+};
+// --- Basic UI Components ---
+const Icon = ({ name, className = "w-5 h-5" }) => {
+    const containerRef = useRef(null);
+    useEffect(() => {
+        if (window.lucide && containerRef.current) {
+            containerRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+            window.lucide.createIcons({ attrs: { class: className }, nameAttr: 'data-lucide' });
+        }
+    }, [name, className]);
+    return React.createElement("span", { ref: containerRef, className: "inline-flex items-center justify-center" });
+};
+const Notification = ({ message, type = 'success', onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 1000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+    const colors = type === 'error' ? 'bg-red-500 shadow-red-200' : 'bg-slate-800 shadow-slate-300';
+    return (React.createElement("div", { className: `fixed top-6 left-1/2 -translate-x-1/2 z-[100] ${colors} text-white px-8 py-4 rounded-2xl shadow-xl font-black animate-fade-in flex items-center gap-3 min-w-[300px] justify-center` },
+        React.createElement(Icon, { name: type === 'error' ? "alert-circle" : "check-circle", className: "w-6 h-6" }),
+        React.createElement("span", { className: "text-lg tracking-wide" }, message)));
+};
+const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmBtnColor = "bg-red-500 hover:bg-red-600 shadow-red-200", confirmText = "確定刪除" }) => {
+    if (!isOpen)
+        return null;
+    return (React.createElement("div", { className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in p-4" },
+        React.createElement("div", { className: "bg-white p-8 rounded-[30px] shadow-2xl max-w-sm w-full border border-slate-100 transform transition-all scale-100" },
+            React.createElement("div", { className: "w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 mx-auto" },
+                React.createElement(Icon, { name: "alert-triangle", className: "w-8 h-8" })),
+            React.createElement("h3", { className: "text-2xl font-black text-slate-800 mb-3 text-center" }, title),
+            React.createElement("p", { className: "text-slate-500 mb-8 font-bold text-center leading-relaxed text-sm" }, message),
+            React.createElement("div", { className: "flex gap-4" },
+                React.createElement("button", { onClick: onCancel, className: "flex-1 py-4 rounded-2xl font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors" }, "\u53D6\u6D88"),
+                React.createElement("button", { onClick: onConfirm, className: `flex-1 py-4 rounded-2xl font-black text-white hover:-translate-y-1 shadow-lg transition-all ${confirmBtnColor}` }, confirmText)))));
+};
+const PasswordInput = ({ value, onChange, placeholder, onEnter, themeColor = "blue" }) => {
+    const [showPwd, setShowPwd] = useState(false);
+    const focusColorClass = themeColor === 'green' ? 'focus:border-green-500' : 'focus:border-blue-600';
+    const iconColorClass = themeColor === 'green' ? 'text-green-500' : 'text-blue-600';
+    return (React.createElement("div", { className: "relative w-full mb-6 group" },
+        React.createElement("input", { type: showPwd ? "text" : "password", placeholder: placeholder, className: `w-full border-2 border-slate-200 rounded-2xl px-6 py-4 text-center font-black outline-none ${focusColorClass} bg-slate-50 shadow-inner text-xl tracking-widest transition-colors pr-12`, value: value, onChange: onChange, onKeyDown: e => e.key === 'Enter' && onEnter && onEnter() }),
+        React.createElement("button", { type: "button", onClick: () => setShowPwd(!showPwd), className: `absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-slate-200 transition-all ${showPwd ? iconColorClass : 'text-slate-400'}` },
+            React.createElement(Icon, { name: showPwd ? "eye-off" : "eye" }))));
+};
+const UnifiedLoginCard = ({ title, iconName, colorClass, children, topBorderColor }) => (React.createElement("div", { className: "max-w-sm mx-auto py-10 md:py-20 animate-fade-in px-4" },
+    React.createElement("div", { className: `bg-white p-8 md:p-10 rounded-[40px] shadow-2xl border-2 border-slate-100 border-t-8 ${topBorderColor} text-center relative overflow-hidden` },
+        React.createElement("div", { className: `${colorClass} w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg transform -rotate-3 hover:rotate-0 transition-transform` },
+            React.createElement(Icon, { name: iconName, className: "w-10 h-10" })),
+        React.createElement("h2", { className: `text-2xl font-black mb-8 uppercase tracking-widest ${colorClass.replace('bg-', 'text-').replace('text-white', '')}` }, title),
+        children)));
+const Navbar = ({ onSwitchRole, currentRole }) => (React.createElement("nav", { className: "bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-[60] px-4 md:px-8 h-20 flex items-center justify-between shadow-sm no-print font-black" },
+    React.createElement("div", { className: "flex items-center gap-4 cursor-pointer", onClick: () => onSwitchRole('home') },
+        React.createElement("div", { className: "p-2 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:scale-105 transition-transform" },
+            React.createElement(Icon, { name: "home" })),
+        React.createElement("span", { className: "font-black text-xl tracking-tighter uppercase hidden md:inline text-slate-800" }, "IEP \u6703\u8B70\u56DE\u994B\u7CFB\u7D71")),
+    React.createElement("div", { className: "flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner" }, [{ id: 'sped', label: '特師' }, { id: 'teacher', label: '導師' }, { id: 'student', label: '學生' }].map(item => (React.createElement("button", { key: item.id, onClick: () => onSwitchRole(item.id), className: `px-4 md:px-5 py-2 rounded-xl text-xs md:text-sm font-black transition-all ${currentRole.includes(item.id) ? 'bg-white shadow-sm text-slate-800 scale-100' : 'text-slate-400 hover:text-slate-600 scale-95'}` }, item.label))))));
+const useSpeechRecognition = () => {
+    const [isRecording, setIsRecording] = useState(false);
+    const recognitionRef = useRef(null);
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.lang = 'zh-TW';
+        }
+    }, []);
+    const startListening = (onResult) => {
+        if (recognitionRef.current) {
+            setIsRecording(true);
+            recognitionRef.current.onresult = (e) => { onResult(e.results[0][0].transcript); setIsRecording(false); };
+            recognitionRef.current.onend = () => setIsRecording(false);
+            recognitionRef.current.start();
+        }
+    };
+    return { isRecording, startListening, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
+};
+const SpeechInputButton = ({ onTranscript, colorClass = "text-slate-500 hover:text-blue-600" }) => {
+    const { isRecording, startListening, supported } = useSpeechRecognition();
+    if (!supported)
+        return null;
+    return (React.createElement("button", { onClick: (e) => { e.preventDefault(); startListening(onTranscript); }, className: `absolute bottom-2 right-2 p-2 rounded-full transition-all z-10 ${isRecording ? 'bg-red-500 text-white recording-pulse' : 'bg-white/80 shadow-sm border ' + colorClass}` },
+        React.createElement(Icon, { name: isRecording ? "mic-off" : "mic", className: "w-4 h-4" })));
+};
+const useSpeechSynthesis = () => {
+    const [voices, setVoices] = useState([]);
+    const [supported, setSupported] = useState(false);
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            setSupported(true);
+            const updateVoices = () => {
+                const vs = window.speechSynthesis.getVoices();
+                const zhVoices = vs.filter(v => v.lang.includes('zh') || v.lang.includes('TW'));
+                setVoices(zhVoices.length > 0 ? zhVoices : vs);
+            };
+            updateVoices();
+            window.speechSynthesis.onvoiceschanged = updateVoices;
+        }
+    }, []);
+    const speak = (text, voice, rate = 1) => {
+        if (!supported)
+            return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (voice)
+            utterance.voice = voice;
+        utterance.rate = rate;
+        window.speechSynthesis.speak(utterance);
+    };
+    return { voices, speak, supported };
+};
+// --- Basic UI Components (Declared before use) ---
+const StudentCheckbox = ({ label, checked, onChange, onSpeak }) => (React.createElement("label", { className: `flex items-start gap-3 cursor-pointer group p-3 rounded-2xl border-2 transition-all relative ${checked ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200 hover:border-green-300'}` },
+    React.createElement("input", { type: "checkbox", className: "hidden", checked: checked, onChange: onChange }),
+    React.createElement("div", { className: `w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${checked ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 bg-slate-50'}` }, checked && React.createElement(Icon, { name: "check", className: "w-4 h-4" })),
+    React.createElement("span", { className: `flex-1 ${checked ? 'text-green-800' : 'text-slate-600'}` }, label),
+    onSpeak && React.createElement("button", { onClick: (e) => { e.preventDefault(); e.stopPropagation(); onSpeak(); }, className: "text-green-400 hover:text-green-600 p-1" },
+        React.createElement(Icon, { name: "volume-2", className: "w-4 h-4" }))));
+const LikertScale = ({ name, value, onChange, options, speak, selectedVoice, speechRate, isTeacher = false }) => (React.createElement("div", { className: `flex flex-wrap gap-2 md:gap-4 justify-start py-4 ${isTeacher ? '' : 'justify-center'}` }, options.map((opt, idx) => (React.createElement("label", { key: opt.val, className: `flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 md:w-28 text-center ${value == opt.val ? (isTeacher ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-lg scale-105' : 'bg-green-500 border-green-500 text-white shadow-lg scale-105') : 'bg-white border-slate-200 hover:border-slate-300 text-slate-500'}`, onClick: (e) => {
+        if (value == opt.val) {
+            e.preventDefault();
+            onChange(null);
+        }
+    } },
+    React.createElement("input", { type: "radio", name: name, className: "hidden", value: opt.val, checked: value == opt.val, onChange: () => onChange(opt.val) }),
+    opt.emoji && React.createElement("span", { className: "text-2xl" }, opt.emoji),
+    isTeacher && !opt.emoji && React.createElement("span", { className: "text-2xl font-black" }, opt.val),
+    React.createElement("span", { className: "text-xs font-black" }, opt.label),
+    !isTeacher && speak && (React.createElement("button", { onClick: (e) => { e.preventDefault(); e.stopPropagation(); speak(opt.label, selectedVoice, speechRate); }, className: `p-1 rounded-full ${value == opt.val ? 'text-green-200 hover:bg-green-600' : 'text-slate-300 hover:text-green-500'}` },
+        React.createElement(Icon, { name: "volume-2", className: "w-3 h-3" }))))))));
+const OtherInput = ({ value, onChange, placeholder, color = "green" }) => (React.createElement("div", { className: "relative w-full mt-2 animate-fade-in" },
+    React.createElement("input", { type: "text", className: `w-full p-3 pr-10 rounded-xl border-2 outline-none transition-all ${color === 'green' ? 'border-green-200 focus:border-green-500' : 'border-slate-200 focus:border-blue-500'} bg-white`, placeholder: placeholder, value: value, onChange: onChange, onClick: e => e.stopPropagation() }),
+    React.createElement(SpeechInputButton, { onTranscript: (t) => { onChange({ target: { value: value + t } }); } })));
+// --- Data Constants ---
+// 導師題目二的向度群組
+const TEACHER_Q2_GROUPS = [
+    { title: '學習態度與認知', items: ["注意力", "記憶力", "學習動機"] },
+    { title: '生活適應與溝通', items: ["生活自理能力", "環境適應", "活動參與", "聽覺理解能力", "口語表達能力"] },
+    { title: '情緒與人際互動', items: ["情緒發展與調節", "挫折容忍度", "人際關係與互動"] },
+    { title: '國語文能力', items: ["拼音能力", "識字能力", "寫字能力", "閱讀理解能力", "寫作與造句能力"] },
+    { title: '數學能力', items: ["數學基本概念", "計算能力", "文字題解題能力", "時間觀念應用"] }
+];
+const STD_Q1_OPTS = [
+    "教我學習方法和策略,讓我比較容易聽懂與學會",
+    "老師會看我的學習狀況,調整成適合我學習的內容",
+    "上課人數少,我比較能得到老師的關心與協助",
+    "可以讓我比較有信心,增加自信",
+    "可以讓我知道我其實只是學得比較慢,慢慢學,多練習,還是能學會",
+    "可以幫助我處理情緒,調整想法或用更好的方法交朋友",
+    "老師會慢慢教我",
+    "聽不懂可以再問一次",
+    "我比較聽得懂",
+    "有人提醒我該做什麼",
+    "我有學到有用的東西",
+    "我比較不容易生氣",
+    "生氣時,有人會幫我",
+    "我比較不緊張",
+    "我知道心情不好時可以怎麼做",
+    "我比較敢說出自己的想法",
+    "有人願意聽我說話",
+    "我學會用說的,不用吵的",
+    "我比較會輪流、等待",
+    "跟同學相處比較好",
+    "知道吵架時可以怎麼做"
+];
+const STD_Q2_OPTS = ["學習策略", "國語課", "數學課", "社會技巧"];
+const STD_Q3_LIKE_OPTS = [
+    "課程好玩有趣",
+    "上課比較聽得懂",
+    "可以得到平板或電腦的協助",
+    "國語進步了",
+    "數學進步了",
+    "說話更清楚了",
+    "學到做事的方法",
+    "可以得到積點與換獎品",
+    "上課比較輕鬆",
+    "人比較少,我比較安心",
+    "上課不會那麼吵",
+    "這裡讓我覺得安全",
+    "老師會幫我",
+    "老師會提醒我",
+    "老師會聽我說",
+    "老師不會一直罵人",
+    "在這裡我比較有信心",
+    "我比較不怕做錯",
+    "我覺得自己做得到",
+    "跟同學在一起比較輕鬆",
+    "同學比較懂我"
+];
+const STD_Q3_DISLIKE_OPTS = ["有些內容對我來說太簡單／太難", "上課方式有時不太適合我", "我比較喜歡在原班上課", "有時會覺得學習壓力有點大", "會擔心被同學知道我來潛能班", "有時會覺得不好意思或緊張", "我不太習慣和不認識的同學一起上課", "會錯過原班我喜歡的課", "上課時間讓我覺得有點累", "來回教室會影響我上課心情"];
+// --- Page Components ---
+const LandingPage = ({ onSwitchRole }) => (React.createElement("div", { className: "max-w-[1400px] mx-auto p-4 md:p-8 text-center py-10 md:py-20 animate-fade-in" },
+    React.createElement("h1", { className: "text-4xl md:text-5xl font-black mb-16 uppercase tracking-tighter text-slate-800 drop-shadow-sm" }, "IEP \u6703\u8B70\u610F\u898B\u56DE\u994B\u7CFB\u7D71"),
+    React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto" }, [{ r: 'sped', l: '特師入口', i: 'settings', d: '管理個案與報表', c: 'blue' }, { r: 'teacher', l: '導師入口', i: 'clipboard-list', d: '填寫觀察回饋', c: 'indigo' }, { r: 'student', l: '學生入口', i: 'smile', d: '自我評估', c: 'emerald' }].map(item => (React.createElement("div", { key: item.r, onClick: () => onSwitchRole(item.r), className: `p-10 bg-white rounded-[40px] border-2 border-slate-100 shadow-lg hover:shadow-2xl cursor-pointer group transition-all border-b-[8px] hover:-translate-y-2 relative overflow-hidden` },
+        React.createElement("div", { className: `absolute top-0 left-0 w-full h-2 bg-${item.c}-500` }),
+        React.createElement("div", { className: `w-20 h-20 bg-${item.c}-50 text-${item.c}-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner` },
+            React.createElement(Icon, { name: item.i, className: "w-10 h-10" })),
+        React.createElement("h3", { className: "text-2xl font-black mb-2 text-slate-800" }, item.l),
+        React.createElement("p", { className: "text-slate-400 text-sm font-black opacity-60 uppercase" }, item.d)))))));
+const SpedLogin = ({ adminPwd, setAdminPwd, handleLogin, authError }) => (React.createElement(UnifiedLoginCard, { title: "\u7BA1\u7406\u7AEF\u9A57\u8B49", iconName: "settings", colorClass: "bg-slate-800 text-white", topBorderColor: "border-slate-800" },
+    React.createElement(PasswordInput, { value: adminPwd, onChange: e => setAdminPwd(e.target.value), placeholder: "\u8ACB\u8F38\u5165\u7BA1\u7406\u4EE3\u78BC", onEnter: handleLogin }),
+    authError && React.createElement("p", { className: "text-red-500 text-sm mb-6 animate-bounce" }, authError),
+    React.createElement("button", { onClick: handleLogin, className: "w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-black active:scale-95 transition-all" }, "\u78BA\u8A8D\u767B\u5165")));
+const SpedDashboard = ({ students, handleCreateStudent, handleDeleteStudent, handleUpdateStudent, handleClearAllFeedbacks, showToast }) => {
+    const [newName, setNewName] = useState('');
+    const [newCode, setNewCode] = useState('');
+    const [newManager, setNewManager] = useState('李老師');
+    const [viewingId, setViewingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editCode, setEditCode] = useState('');
+    const [editManager, setEditManager] = useState('');
+    const [deleteTargetId, setDeleteTargetId] = useState(null);
+    const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+    const startEdit = (student) => {
+        setEditingId(student.id);
+        setEditName(student.name);
+        setEditCode(student.accessCode);
+        setEditManager(student.manager);
+    };
+    const saveEdit = () => {
+        if (editingId) {
+            handleUpdateStudent(editingId, { name: editName, accessCode: editCode, manager: editManager });
+            setEditingId(null);
+        }
+    };
+    const confirmDelete = async () => {
+        if (deleteTargetId) {
+            await handleDeleteStudent(deleteTargetId);
+            setDeleteTargetId(null);
+        }
+    };
+    const confirmResetAll = async () => {
+        await handleClearAllFeedbacks();
+        setResetConfirmOpen(false);
+    };
+    return (React.createElement("div", { className: "max-w-6xl mx-auto p-4 md:p-8 animate-fade-in pb-24" },
+        React.createElement(ConfirmDialog, { isOpen: !!deleteTargetId, title: "\u78BA\u8A8D\u522A\u9664\u500B\u6848\uFF1F", message: "\u6B64\u52D5\u4F5C\u5C07\u6C38\u4E45\u522A\u9664\u8A72\u5B78\u751F\u7684\u6240\u6709\u8CC7\u6599\uFF0C\u5305\u542B\u5DF2\u586B\u5BEB\u7684\u56DE\u994B\u5167\u5BB9\uFF0C\u4E14\u7121\u6CD5\u5FA9\u539F\u3002", onConfirm: confirmDelete, onCancel: () => setDeleteTargetId(null) }),
+        React.createElement(ConfirmDialog, { isOpen: resetConfirmOpen, title: "\u78BA\u8A8D\u4E00\u9375\u91CD\u7F6E\u671F\u672B\uFF1F", message: "\u9019\u6703\u6E05\u9664\u5168\u90E8\u500B\u6848\u7684\u5C0E\u5E2B\u56DE\u994B\u3001\u5B78\u751F\u8A55\u4F30\u7B49\u8A18\u9304\u3002\u9019\u5E38\u7528\u65BC\u671F\u521D\u6703\u8B70\u7D50\u675F\u5F8C\uFF0C\u91CD\u8A2D\u4EE5\u9032\u5165\u671F\u672B\u6703\u8B70\u8ABF\u67E5\u3002\u6B64\u52D5\u4F5C\u7121\u6CD5\u5FA9\u539F\uFF01", onConfirm: confirmResetAll, onCancel: () => setResetConfirmOpen(false), confirmBtnColor: "bg-amber-600 hover:bg-amber-700 shadow-amber-200", confirmText: "\u78BA\u5B9A\u91CD\u7F6E" }),
+        React.createElement("div", { className: "flex flex-col md:flex-row justify-between items-center mb-10 gap-4" },
+            React.createElement("h1", { className: "text-3xl font-black text-slate-800" }, "\u7279\u6559\u8001\u5E2B\u7BA1\u7406\u5F8C\u53F0"),
+            React.createElement("div", { className: "flex flex-wrap gap-3 justify-center" },
+                React.createElement("button", { onClick: () => setResetConfirmOpen(true), className: "bg-amber-50 text-amber-600 border-2 border-amber-200 px-6 py-3 rounded-2xl font-black shadow-sm hover:bg-amber-100 flex items-center gap-2 transition-all active:scale-95" },
+                    React.createElement(Icon, { name: "rotate-ccw", className: "w-5 h-5" }),
+                    " \u4E00\u9375\u91CD\u7F6E\u671F\u672B (\u6E05\u9664\u56DE\u994B)"),
+                React.createElement("button", { onClick: () => downloadAllZip(students), className: "bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:bg-indigo-700 flex items-center gap-2 transition-all active:scale-95" },
+                    React.createElement(Icon, { name: "download", className: "w-5 h-5" }),
+                    " \u4E0B\u8F09\u5168\u90E8 (\u542B\u5F59\u6574 Excel)"))),
+        React.createElement("div", { className: "bg-white p-8 rounded-[30px] shadow-sm mb-10 border border-slate-200" },
+            React.createElement("h3", { className: "font-black text-slate-500 mb-4 flex items-center gap-2" },
+                React.createElement(Icon, { name: "user-plus", className: "w-5 h-5" }),
+                " \u5EFA\u7ACB\u65B0\u500B\u6848"),
+            React.createElement("div", { className: "flex flex-col md:flex-row gap-6 items-end" },
+                React.createElement("div", { className: "flex-1 w-full space-y-2" },
+                    React.createElement("label", { className: "text-xs font-bold text-slate-400 ml-1" }, "\u5B78\u751F\u59D3\u540D"),
+                    React.createElement("input", { placeholder: "\u8F38\u5165\u59D3\u540D", className: "w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all", value: newName, onChange: e => setNewName(e.target.value) })),
+                React.createElement("div", { className: "flex-1 w-full space-y-2" },
+                    React.createElement("label", { className: "text-xs font-bold text-slate-400 ml-1" }, "\u767B\u5165\u5BC6\u78BC (\u9A57\u8B49\u78BC)"),
+                    React.createElement("input", { placeholder: "\u8A2D\u5B9A\u5BC6\u78BC", className: "w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all", value: newCode, onChange: e => setNewCode(e.target.value) })),
+                React.createElement("div", { className: "flex-1 w-full space-y-2" },
+                    React.createElement("label", { className: "text-xs font-bold text-slate-400 ml-1" }, "\u500B\u7BA1\u8001\u5E2B"),
+                    React.createElement("div", { className: "relative" },
+                        React.createElement("select", { className: "w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 appearance-none transition-all cursor-pointer", value: newManager, onChange: e => setNewManager(e.target.value) },
+                            React.createElement("option", { value: "\u674E\u8001\u5E2B" }, "\u674E\u8001\u5E2B"),
+                            React.createElement("option", { value: "\u5085\u8001\u5E2B" }, "\u5085\u8001\u5E2B")),
+                        React.createElement("div", { className: "absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" },
+                            React.createElement(Icon, { name: "chevron-down", className: "w-5 h-5" })))),
+                React.createElement("button", { className: "w-full md:w-auto bg-slate-800 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-black hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2", onClick: () => { if (newName && newCode) {
+                        handleCreateStudent(newName, newCode, newManager);
+                        setNewName('');
+                        setNewCode('');
+                    }
+                    else {
+                        showToast("請輸入完整資料", 'error');
+                    } } },
+                    React.createElement(Icon, { name: "plus", className: "w-5 h-5" }),
+                    " \u65B0\u589E"))),
+        React.createElement("div", { className: "grid grid-cols-1 gap-6" }, students.map(s => {
+            var _a, _b, _c, _d, _e, _f;
+            return (React.createElement("div", { key: s.id, className: "bg-white p-6 rounded-[30px] shadow-sm border border-slate-100 hover:shadow-xl transition-all relative" },
+                React.createElement("div", { className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-4" },
+                    editingId === s.id ? (React.createElement("div", { className: "flex-1 flex gap-4 w-full" },
+                        React.createElement("input", { className: "p-2 border rounded-xl flex-1", value: editName, onChange: e => setEditName(e.target.value), placeholder: "\u59D3\u540D" }),
+                        React.createElement("input", { className: "p-2 border rounded-xl w-32", value: editCode, onChange: e => setEditCode(e.target.value), placeholder: "\u5BC6\u78BC" }),
+                        React.createElement("select", { className: "p-2 border rounded-xl w-32", value: editManager, onChange: e => setEditManager(e.target.value) },
+                            React.createElement("option", { value: "\u674E\u8001\u5E2B" }, "\u674E\u8001\u5E2B"),
+                            React.createElement("option", { value: "\u5085\u8001\u5E2B" }, "\u5085\u8001\u5E2B")),
+                        React.createElement("button", { onClick: saveEdit, className: "bg-green-500 text-white px-4 rounded-xl font-bold" },
+                            React.createElement(Icon, { name: "save", className: "w-4 h-4" })),
+                        React.createElement("button", { onClick: () => setEditingId(null), className: "bg-slate-200 text-slate-500 px-4 rounded-xl font-bold" },
+                            React.createElement(Icon, { name: "x", className: "w-4 h-4" })))) : (React.createElement("div", { className: "flex items-center gap-4" },
+                        React.createElement("div", { className: `w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black shadow-inner ${s.manager === '傅老師' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}` }, s.name[0]),
+                        React.createElement("div", null,
+                            React.createElement("h3", { className: "text-xl font-black text-slate-800 flex items-center gap-2" },
+                                s.name,
+                                React.createElement("button", { onClick: () => startEdit(s), className: "text-slate-300 hover:text-blue-500" },
+                                    React.createElement(Icon, { name: "edit-3", className: "w-4 h-4" }))),
+                            React.createElement("div", { className: "flex gap-2 mt-1" },
+                                React.createElement("span", { className: "text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-lg font-bold" },
+                                    "\u5BC6\u78BC: ",
+                                    s.accessCode),
+                                React.createElement("span", { className: `text-[10px] px-2 py-1 rounded-lg font-bold ${s.manager === '傅老師' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}` }, s.manager))))),
+                    React.createElement("div", { className: "flex items-center gap-4 w-full md:w-auto justify-between" },
+                        React.createElement("div", { className: "flex gap-3 text-sm" },
+                            React.createElement("div", { className: `px-3 py-1 rounded-xl flex items-center gap-1 border ${s.teacherFeedback ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-400 border-slate-200'}` },
+                                React.createElement(Icon, { name: "user-check", className: "w-3 h-3" }),
+                                " \u5C0E\u5E2B",
+                                s.teacherFeedback ? 'OK' : ''),
+                            React.createElement("div", { className: `px-3 py-1 rounded-xl flex items-center gap-1 border ${s.studentFeedback ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'}` },
+                                React.createElement(Icon, { name: "smile", className: "w-3 h-3" }),
+                                " \u5B78\u751F",
+                                s.studentFeedback ? 'OK' : '')),
+                        React.createElement("div", { className: "flex gap-2" },
+                            React.createElement("button", { onClick: () => downloadSingleDoc(s), className: "p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all", title: "\u4E0B\u8F09 Word" },
+                                React.createElement(Icon, { name: "file-text", className: "w-5 h-5" })),
+                            React.createElement("button", { onClick: () => setViewingId(viewingId === s.id ? null : s.id), className: `px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${viewingId === s.id ? 'bg-slate-800 text-white' : 'bg-white border-2 border-slate-200 hover:border-slate-400'}` },
+                                viewingId === s.id ? '收起' : '查看詳情',
+                                " ",
+                                React.createElement(Icon, { name: viewingId === s.id ? "chevron-up" : "chevron-down", className: "w-4 h-4" })),
+                            React.createElement("button", { onClick: () => setDeleteTargetId(s.id), className: "p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" },
+                                React.createElement(Icon, { name: "trash-2", className: "w-5 h-5" }))))),
+                viewingId === s.id && (React.createElement("div", { className: "mt-6 pt-6 border-t-2 border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in" },
+                    React.createElement("div", { className: "bg-blue-50/50 p-6 rounded-3xl border border-blue-100" },
+                        React.createElement("h4", { className: "font-black text-blue-700 mb-4 flex justify-between" },
+                            "\u5C0E\u5E2B\u56DE\u994B ",
+                            ((_a = s.teacherFeedback) === null || _a === void 0 ? void 0 : _a.submittedAt) && React.createElement("span", { className: "text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded" }, new Date(s.teacherFeedback.submittedAt).toLocaleDateString())),
+                        s.teacherFeedback ? (React.createElement("div", { className: "space-y-4 text-sm text-slate-700" },
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u9032\u6B65\u60C5\u5F62\uFF1A"),
+                                s.teacherFeedback.tq1_progress,
+                                " ",
+                                s.teacherFeedback.tq1_level ? `(${s.teacherFeedback.tq1_level}分)` : ''),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u6559\u5B78\u8F14\u5C0E\u5411\u5EA6\uFF1A"), (_b = s.teacherFeedback.tq2_help) === null || _b === void 0 ? void 0 :
+                                _b.join(', '),
+                                " ",
+                                s.teacherFeedback.tq2_other ? `其他：${s.teacherFeedback.tq2_other}` : ''),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u512A\u52E2\u8207\u4EAE\u9EDE\uFF1A"),
+                                s.teacherFeedback.tq3_strength),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u7B56\u7565\u985E\u5316\u60C5\u5F62\uFF1A"),
+                                s.teacherFeedback.tq4_generalization),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u8A55\u91CF\u4F5C\u696D\u8ABF\u6574\uFF1A"),
+                                s.teacherFeedback.tq5_adjustment,
+                                " ",
+                                s.teacherFeedback.tq5_adjustment === '其他需求' ? `(${s.teacherFeedback.tq5_other})` : ''),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u539F\u73ED\u9069\u61C9\u6311\u6230\uFF1A"),
+                                s.teacherFeedback.tq6_challenge === 'yes' ? s.teacherFeedback.tq6_desc : (s.teacherFeedback.tq6_challenge === 'no' ? '無特別狀況' : '')),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u89AA\u5E2B\u6E9D\u901A\u5354\u4F5C\uFF1A"),
+                                s.teacherFeedback.tq7_communication,
+                                " ",
+                                s.teacherFeedback.tq7_communication === '希望潛能班協助與家長溝通的事項' ? `(${s.teacherFeedback.tq7_other})` : ''),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u88DC\u5145\u8AAA\u660E\uFF1A"),
+                                s.teacherFeedback.tq8_comment))) : React.createElement("p", { className: "text-slate-400 text-sm" }, "\u5C1A\u672A\u586B\u5BEB")),
+                    React.createElement("div", { className: "bg-green-50/50 p-6 rounded-3xl border border-green-100" },
+                        React.createElement("h4", { className: "font-black text-green-700 mb-4 flex justify-between" },
+                            "\u5B78\u751F\u56DE\u994B ",
+                            ((_c = s.studentFeedback) === null || _c === void 0 ? void 0 : _c.submittedAt) && React.createElement("span", { className: "text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded" }, new Date(s.studentFeedback.submittedAt).toLocaleDateString())),
+                        s.studentFeedback ? (React.createElement("div", { className: "space-y-4 text-sm text-slate-700" },
+                            React.createElement("div", { className: "bg-white/60 p-3 rounded-xl border border-green-200 mb-3" },
+                                React.createElement("p", { className: "font-bold text-green-800 mb-1 border-b border-green-100 pb-1" }, "\u3010\u6B0A\u76CA\u544A\u77E5\u3011"),
+                                React.createElement("p", null,
+                                    "\u6B0A\u76CA\u544A\u77E5\uFF1A",
+                                    s.studentFeedback.rights_2 || '未填',
+                                    " ",
+                                    s.studentFeedback.rights_2 === '我知道，我有其他想法' ? `(想法：${s.studentFeedback.rights_2_other || ''})` : '')),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u5E6B\u52A9\u7A0B\u5EA6 (1-5)\uFF1A"),
+                                s.studentFeedback.q1_level || '-'),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u5177\u9AD4\u5E6B\u52A9\uFF1A"), (_d = s.studentFeedback.q1) === null || _d === void 0 ? void 0 :
+                                _d.join(', '),
+                                " ",
+                                s.studentFeedback.q1_other),
+                            s.studentFeedback.q1_neutral_text && React.createElement("p", null,
+                                React.createElement("strong", null, "\u666E\u901A\u88DC\u5145\uFF1A"),
+                                s.studentFeedback.q1_neutral_text),
+                            s.studentFeedback.q1_dislike_text && React.createElement("p", null,
+                                React.createElement("strong", null, "\u6C92\u5E6B\u52A9\u539F\u56E0\uFF1A"),
+                                s.studentFeedback.q1_dislike_text),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u6709\u8DA3\u8AB2\u7A0B\uFF1A"), (_e = s.studentFeedback.q2) === null || _e === void 0 ? void 0 :
+                                _e.join(', '),
+                                " ",
+                                s.studentFeedback.q2_other),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u559C\u597D\u7A0B\u5EA6 (1-5)\uFF1A"),
+                                s.studentFeedback.q3_level || '-'),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u559C\u6B61\u539F\u56E0\uFF1A"), (_f = s.studentFeedback.q3_like) === null || _f === void 0 ? void 0 :
+                                _f.join(', '),
+                                " ",
+                                s.studentFeedback.q3_like_other),
+                            s.studentFeedback.q3_neutral_text && React.createElement("p", null,
+                                React.createElement("strong", null, "\u666E\u901A\u88DC\u5145\uFF1A"),
+                                s.studentFeedback.q3_neutral_text),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u4E0D\u559C\u6B61\u539F\u56E0\uFF1A"),
+                                s.studentFeedback.q3_dislike_text),
+                            React.createElement("p", null,
+                                React.createElement("strong", null, "\u7D66\u8001\u5E2B\u7684\u8A71\uFF1A"),
+                                s.studentFeedback.teacher_words))) : React.createElement("p", { className: "text-slate-400 text-sm" }, "\u5C1A\u672A\u586B\u5BEB"))))));
+        }))));
+};
+const TeacherView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, teacherForm, setTeacherForm, submitFeedback, onSwitchRole }) => {
+    const handleTeacherCheck = (field, value) => {
+        const current = teacherForm[field] || [];
+        const next = current.includes(value) ? current.filter(x => x !== value) : [...current, value];
+        setTeacherForm({ ...teacherForm, [field]: next });
+    };
+    if (!selectedStudent || !isUserAuth)
+        return (React.createElement(UnifiedLoginCard, { title: "\u5C0E\u5E2B\u767B\u5165", iconName: "clipboard-list", colorClass: "bg-blue-600 text-white", topBorderColor: "border-blue-600" }, !selectedStudent ? (React.createElement("div", { className: "grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar" }, students.map(s => (React.createElement("button", { key: s.id, onClick: () => setSelectedStudent(s), className: "p-4 bg-slate-50 hover:bg-blue-600 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700" }, s.name))))) : (React.createElement("div", null,
+            React.createElement("div", { className: "mb-6 font-black text-blue-700 bg-blue-50 py-2 rounded-xl border border-blue-100" }, selectedStudent.name),
+            React.createElement(PasswordInput, { value: accessCode, onChange: e => setAccessCode(e.target.value), placeholder: "\u9A57\u8B49\u78BC", onEnter: handleLogin }),
+            authError && React.createElement("p", { className: "text-red-500 text-sm mb-6 animate-bounce" }, authError),
+            React.createElement("div", { className: "flex gap-4" },
+                React.createElement("button", { onClick: () => { setSelectedStudent(null); setAccessCode(''); }, className: "flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors" }, "\u91CD\u9078"),
+                React.createElement("button", { onClick: handleLogin, className: "flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all" }, "\u9032\u5165"))))));
+    return (React.createElement("div", { className: "max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-24" },
+        React.createElement("div", { className: "bg-white rounded-[40px] shadow-xl overflow-hidden" },
+            React.createElement("div", { className: "bg-blue-600 p-8 md:p-12 text-white" },
+                React.createElement("h2", { className: "text-3xl md:text-4xl font-black mb-4" }, "\u5B89\u6771\u6F5B\u80FD\u73ED \u5B78\u751F\u5B78\u7FD2\u56DE\u994B\u8868"),
+                React.createElement("p", { className: "opacity-90 font-bold mb-6 text-blue-100 leading-relaxed" },
+                    "\u89AA\u611B\u7684\u5C0E\u5E2B\uFF0C\u60A8\u597D\uFF1A",
+                    React.createElement("br", null),
+                    "\u611F\u8B1D\u60A8\u9019\u5B78\u671F\u5C0D\u5B78\u751F\u7684\u6089\u5FC3\u7167\u9867\u8207\u6307\u5C0E\uFF01\u70BA\u4E86\u8B93\u6F5B\u80FD\u73ED\u7684\u6559\u5B78\u8207\u8F14\u5C0E\u80FD\u66F4\u6709\u6548\u5354\u540C\u539F\u73ED\u7D1A\u7684\u9700\u6C42\uFF0C\u4E26\u4FC3\u9032\u4E09\u65B9\uFF08\u5C0E\u5E2B\u3001\u6F5B\u80FD\u73ED\u3001\u5BB6\u9577\uFF09\u7684\u5408\u4F5C\uFF0C\u61C7\u8ACB\u60A8\u64A5\u5197\u586B\u5BEB\u6B64\u56DE\u994B\u8868\u3002\u60A8\u7684\u5BF6\u8CB4\u89C0\u5BDF\u8207\u610F\u898B\uFF0C\u5C07\u662F\u6211\u5011\u8ABF\u6574\u4E0B\u5B78\u671F\u500B\u5225\u5316\u6559\u80B2\u8A08\u756B\uFF08IEP\uFF09\u7684\u91CD\u8981\u4F9D\u64DA\u3002"),
+                React.createElement("div", { className: "inline-block bg-white/20 px-4 py-2 rounded-xl font-black" },
+                    "\u586B\u5BEB\u5B78\u751F\uFF1A",
+                    selectedStudent.name)),
+            React.createElement("div", { className: "p-8 md:p-12 space-y-12" },
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u4E00\uFF09 \u6574\u9AD4\u9032\u6B65\u60C5\u5F62\u8A55\u4F30"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-6 pl-4 font-bold" }, "\u60A8\u89C0\u5BDF\u8A72\u751F\u672C\u5B78\u671F\u5728\u539F\u73ED\u7D1A\u7684\u6574\u9AD4\u300C\u5B78\u7FD2\u8207\u9069\u61C9\u60C5\u5F62\u300D\uFF0C\u662F\u5426\u6709\u9032\u6B65\uFF1F(\u8ACB\u52FE\u9078\uFF0C5 \u5206\u70BA\u9032\u6B65\u986F\u8457\uFF0C1 \u5206\u70BA\u5C1A\u7121\u660E\u986F\u9032\u6B65)"),
+                    React.createElement("div", { className: "pl-4" },
+                        React.createElement(LikertScale, { name: "tq1_level", value: teacherForm.tq1_level, onChange: (v) => {
+                                const labels = { 5: '進步顯著 (表現亮眼)', 4: '穩定成長 (有進步)', 3: '維持平穩 (普通)', 2: '進步緩慢', 1: '尚無明顯進步 (需多加強)' };
+                                setTeacherForm({ ...teacherForm, tq1_level: v, tq1_progress: labels[v] });
+                            }, isTeacher: true, options: [
+                                { val: 5, label: '進步顯著' },
+                                { val: 4, label: '穩定成長' },
+                                { val: 3, label: '維持平穩' },
+                                { val: 2, label: '進步緩慢' },
+                                { val: 1, label: '尚無明顯進步' }
+                            ] }),
+                        teacherForm.tq1_level && React.createElement("p", { className: "mt-2 text-blue-600 font-bold" },
+                            "\u5DF2\u9078\u64C7\uFF1A",
+                            teacherForm.tq1_progress))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-4 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" },
+                        "\uFF08\u4E8C\uFF09 \u6559\u5B78\u8207\u8F14\u5C0E\u5411\u5EA6\u78BA\u8A8D ",
+                        React.createElement("span", { className: "text-sm text-slate-400 font-normal" }, "(\u53EF\u8907\u9078)")),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-6 pl-4 font-bold" }, "\u60A8\u8A8D\u70BA\u6F5B\u80FD\u73ED\u672A\u4F86\u53EF\u4EE5\u6301\u7E8C\u52A0\u5F37\u8A72\u751F\u54EA\u4E9B\u5411\u5EA6\u7684\u6559\u5B78\u8207\u8F14\u5C0E\uFF1F"),
+                    React.createElement("div", { className: "space-y-6 pl-4" },
+                        TEACHER_Q2_GROUPS.map(group => (React.createElement("div", { key: group.title, className: "bg-slate-50 p-4 rounded-2xl border border-slate-100" },
+                            React.createElement("h4", { className: "font-black text-slate-700 mb-3" },
+                                "\u3010",
+                                group.title,
+                                "\u3011"),
+                            React.createElement("div", { className: "flex flex-wrap gap-3" }, group.items.map(o => {
+                                const isChecked = (teacherForm.tq2_help || []).includes(o);
+                                return (React.createElement("label", { key: o, className: `flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl transition-all ${isChecked ? 'bg-blue-100 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'} border` },
+                                    React.createElement("input", { type: "checkbox", checked: isChecked, onChange: () => handleTeacherCheck('tq2_help', o), className: "hidden" }),
+                                    React.createElement("div", { className: `w-4 h-4 rounded border flex items-center justify-center ${isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}` }, isChecked && React.createElement(Icon, { name: "check", className: "w-3 h-3" })),
+                                    React.createElement("span", { className: `text-sm ${isChecked ? 'font-black text-blue-800' : 'font-bold text-slate-600'}` }, o)));
+                            }))))),
+                        React.createElement("div", { className: "bg-slate-50 p-4 rounded-2xl border border-slate-100" },
+                            React.createElement("h4", { className: "font-black text-slate-700 mb-3" }, "\u3010\u5176\u4ED6\u80FD\u529B\u3011"),
+                            React.createElement("div", { className: "flex items-center gap-3" },
+                                React.createElement("label", { className: `flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl transition-all ${(teacherForm.tq2_help || []).includes('其他') ? 'bg-blue-100 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'} border` },
+                                    React.createElement("input", { type: "checkbox", checked: (teacherForm.tq2_help || []).includes('其他'), onChange: () => handleTeacherCheck('tq2_help', '其他'), className: "hidden" }),
+                                    React.createElement("div", { className: `w-4 h-4 rounded border flex items-center justify-center ${(teacherForm.tq2_help || []).includes('其他') ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}` }, (teacherForm.tq2_help || []).includes('其他') && React.createElement(Icon, { name: "check", className: "w-3 h-3" })),
+                                    React.createElement("span", { className: `text-sm ${(teacherForm.tq2_help || []).includes('其他') ? 'font-black text-blue-800' : 'font-bold text-slate-600'}` }, "\u5176\u4ED6")),
+                                (teacherForm.tq2_help || []).includes('其他') && (React.createElement("input", { type: "text", className: "flex-1 p-2 rounded-xl border border-slate-200 outline-none focus:border-blue-500 text-sm font-bold", placeholder: "\u8ACB\u8AAA\u660E...", value: teacherForm.tq2_other || '', onChange: e => setTeacherForm({ ...teacherForm, tq2_other: e.target.value }) })))))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u4E09\uFF09 \u512A\u52E2\u8207\u4EAE\u9EDE\u89C0\u5BDF"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold leading-relaxed" }, "\u60A8\u89C0\u5BDF\u8A72\u751F\u672C\u5B78\u671F\u5728\u539F\u73ED\u7D1A\u4E2D\uFF0C\u8868\u73FE\u6700\u597D\u7684\u5730\u65B9\u3001\u6700\u71B1\u5FC3\u53C3\u8207\u7684\u4E8B\u7269\uFF0C\u6216\u662F\u5C55\u73FE\u51FA\u7684\u512A\u9EDE\u70BA\u4F55\uFF1F\uFF08\u4F8B\u5982\uFF1A\u9AD4\u80B2\u8868\u73FE\u3001\u7E6A\u756B\u5929\u8CE6\u3001\u6A02\u65BC\u52A9\u4EBA\u3001\u79AE\u8C8C\u8CBC\u5FC3\u7B49\uFF09"),
+                    React.createElement("div", { className: "pl-4" },
+                        React.createElement("textarea", { className: "w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors min-h-[100px]", value: teacherForm.tq3_strength || '', onChange: e => setTeacherForm({ ...teacherForm, tq3_strength: e.target.value }) }))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u56DB\uFF09 \u5B78\u7FD2\u6280\u5DE7\u8207\u7B56\u7565\u7684\u300C\u985E\u5316\u300D\u60C5\u5F62"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold" }, "\u8A72\u751F\u662F\u5426\u80FD\u5C07\u6F5B\u80FD\u73ED\u5B78\u5230\u7684\u7B56\u7565\uFF08\u5982\uFF1A\u81EA\u6211\u51B7\u975C\u6280\u5DE7\u3001\u5C08\u6CE8\u529B\u63D0\u793A\u3001\u884C\u70BA\u5E38\u898F\uFF09\u904B\u7528\u5728\u539F\u73ED\u7684\u65E5\u5E38\u4F5C\u606F\u4E2D\uFF1F"),
+                    React.createElement("div", { className: "space-y-3 pl-4" }, ["經常能主動運用", "偶爾能在提醒下運用", "尚未觀察到能運用的情形", "難以觀察 / 不清楚"].map(opt => (React.createElement("label", { key: opt, className: `flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq4_generalization === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}` },
+                        React.createElement("input", { type: "radio", checked: teacherForm.tq4_generalization === opt, onChange: () => setTeacherForm({ ...teacherForm, tq4_generalization: opt }), className: "w-5 h-5 accent-blue-600" }),
+                        React.createElement("span", { className: "font-bold" }, opt)))))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u4E94\uFF09 \u8A55\u91CF\u8207\u4F5C\u696D\u8ABF\u6574\u9700\u6C42"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold" }, "\u5728\u539F\u73ED\u7D1A\u7684\u65E5\u5E38\u4F5C\u696D\u6216\u5B9A\u671F\u8A55\u91CF\u4E2D\uFF0C\u662F\u5426\u6709\u9700\u8981\u6F5B\u80FD\u73ED\u5171\u540C\u5354\u52A9\u8ABF\u6574\u7684\u5730\u65B9\uFF1F"),
+                    React.createElement("div", { className: "space-y-3 pl-4" }, [
+                        "無特別需求",
+                        "需要協助調整日常作業（例如：簡化內容、減少份量、改以口頭回答等）",
+                        "需要協助評量調整（例如：報讀、延長時間、獨立試場等）",
+                        "其他需求"
+                    ].map(opt => (React.createElement("div", { key: opt },
+                        React.createElement("label", { className: `flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq5_adjustment === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}` },
+                            React.createElement("input", { type: "radio", checked: teacherForm.tq5_adjustment === opt, onChange: () => setTeacherForm({ ...teacherForm, tq5_adjustment: opt }), className: "w-5 h-5 accent-blue-600 mt-0.5" }),
+                            React.createElement("span", { className: "font-bold" }, opt)),
+                        opt === "其他需求" && teacherForm.tq5_adjustment === "其他需求" && (React.createElement("div", { className: "pl-10 mt-2 animate-fade-in" },
+                            React.createElement("input", { type: "text", className: "w-full p-3 rounded-xl border border-blue-200 outline-none focus:border-blue-500 text-sm font-bold", placeholder: "\u8ACB\u8AAA\u660E\u5176\u4ED6\u9700\u6C42...", value: teacherForm.tq5_other || '', onChange: e => setTeacherForm({ ...teacherForm, tq5_other: e.target.value }) })))))))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u516D\uFF09 \u539F\u73ED\u7D1A\u9069\u61C9\u8207\u6311\u6230"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold" }, "\u8A72\u751F\u76EE\u524D\u5728\u539F\u73ED\u7D1A\u4E2D\uFF0C\u662F\u5426\u6709\u5176\u4ED6\u9700\u8981\u5354\u52A9\u6216\u8F03\u5177\u6311\u6230\u6027\u7684\u72C0\u6CC1\uFF1F"),
+                    React.createElement("div", { className: "space-y-3 pl-4" },
+                        React.createElement("label", { className: "flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 border-slate-100 hover:border-blue-200 transition-all" },
+                            React.createElement("input", { type: "radio", checked: teacherForm.tq6_challenge === 'no', onChange: () => setTeacherForm({ ...teacherForm, tq6_challenge: 'no', tq6_desc: '' }), className: "w-5 h-5 accent-blue-600" }),
+                            React.createElement("span", { className: "font-bold" }, "\u7121\u7279\u5225\u72C0\u6CC1")),
+                        React.createElement("label", { className: "flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 border-slate-100 hover:border-blue-200 transition-all" },
+                            React.createElement("input", { type: "radio", checked: teacherForm.tq6_challenge === 'yes', onChange: () => setTeacherForm({ ...teacherForm, tq6_challenge: 'yes' }), className: "w-5 h-5 accent-blue-600" }),
+                            React.createElement("span", { className: "font-bold" }, "\u6709\uFF0C\u8ACB\u7C21\u8FF0\u8AAA\u660E\uFF1A")),
+                        teacherForm.tq6_challenge === 'yes' && (React.createElement("div", { className: "pl-10 animate-fade-in" },
+                            React.createElement("textarea", { className: "w-full border-2 border-blue-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-blue-50/30", rows: "3", value: teacherForm.tq6_desc || '', onChange: e => setTeacherForm({ ...teacherForm, tq6_desc: e.target.value }) }))))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u4E03\uFF09 \u89AA\u5E2B\u6E9D\u901A\u8207\u4E09\u65B9\u5354\u4F5C"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold" }, "\u95DC\u65BC\u8A72\u751F\u7684\u5B78\u7FD2\u8207\u9069\u61C9\u72C0\u6CC1\uFF0C\u76EE\u524D\u60A8\u8207\u5BB6\u9577\u6E9D\u901A\u7684\u60C5\u5F62\u53CA\u9700\u8981\u6F5B\u80FD\u73ED\u5354\u52A9\u7684\u90E8\u5206\uFF1A"),
+                    React.createElement("div", { className: "space-y-3 pl-4" }, [
+                        "溝通順暢，家長能配合班級常規與指導。",
+                        "已反映狀況，但家長較難配合或無暇協助。",
+                        "尚未與家長深入討論過此狀況。",
+                        "希望潛能班協助與家長溝通的事項"
+                    ].map(opt => (React.createElement("div", { key: opt },
+                        React.createElement("label", { className: `flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq7_communication === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}` },
+                            React.createElement("input", { type: "radio", checked: teacherForm.tq7_communication === opt, onChange: () => setTeacherForm({ ...teacherForm, tq7_communication: opt }), className: "w-5 h-5 accent-blue-600 mt-0.5" }),
+                            React.createElement("span", { className: "font-bold" }, opt)),
+                        opt === "希望潛能班協助與家長溝通的事項" && teacherForm.tq7_communication === "希望潛能班協助與家長溝通的事項" && (React.createElement("div", { className: "pl-10 mt-2 animate-fade-in" },
+                            React.createElement("input", { type: "text", className: "w-full p-3 rounded-xl border border-blue-200 outline-none focus:border-blue-500 text-sm font-bold", placeholder: "\u8ACB\u8AAA\u660E\u9700\u8981\u5354\u52A9\u6E9D\u901A\u7684\u4E8B\u9805...", value: teacherForm.tq7_other || '', onChange: e => setTeacherForm({ ...teacherForm, tq7_other: e.target.value }) })))))))),
+                React.createElement("section", null,
+                    React.createElement("h3", { className: "font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3" }, "\uFF08\u516B\uFF09 \u5176\u4ED6\u88DC\u5145\u8207\u5EFA\u8B70"),
+                    React.createElement("p", { className: "text-sm text-slate-500 mb-4 pl-4 font-bold" }, "(\u4F8B\u5982\uFF1A\u5E0C\u671B\u6F5B\u80FD\u73ED\u5354\u52A9\u914D\u5408\u7684\u7279\u5B9A\u734E\u61F2\u884C\u70BA\u7D04\u5B9A\u3001\u6216\u662F\u7279\u6B8A\u4EA4\u8FA6\u4E8B\u9805)"),
+                    React.createElement("div", { className: "pl-4" },
+                        React.createElement("textarea", { className: "w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors min-h-[100px]", value: teacherForm.tq8_comment || '', onChange: e => setTeacherForm({ ...teacherForm, tq8_comment: e.target.value }) }))),
+                React.createElement("div", { className: "flex gap-4 pt-8 border-t-2 border-slate-100" },
+                    React.createElement("button", { onClick: () => { onSwitchRole('home'); }, className: "px-8 py-4 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors" }, "\u66AB\u5B58\u8FD4\u56DE"),
+                    React.createElement("button", { onClick: () => submitFeedback('teacher'), className: "flex-1 bg-blue-600 text-white rounded-xl font-black text-xl shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all" }, "\u63D0\u4EA4\u56DE\u994B\u8868"))))));
+};
+const StudentView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, studentForm, setStudentForm, submitFeedback, onSwitchRole, handleStudentCheck }) => {
+    const [fontSize, setFontSize] = useState('text-lg');
+    const { voices, speak, supported: ttsSupported } = useSpeechSynthesis();
+    const [selectedVoice, setSelectedVoice] = useState(null);
+    const [speechRate, setSpeechRate] = useState(1);
+    useEffect(() => {
+        if (voices.length > 0 && !selectedVoice) {
+            const defaultVoice = voices.find(v => v.name.includes("Google") && v.lang.includes("zh")) || voices[0];
+            setSelectedVoice(defaultVoice);
+        }
+    }, [voices]);
+    if (!selectedStudent || !isUserAuth)
+        return (React.createElement(UnifiedLoginCard, { title: "\u5B78\u751F\u5C08\u5340", iconName: "smile", colorClass: "bg-green-500 text-white", topBorderColor: "border-green-500" }, !selectedStudent ? (React.createElement("div", { className: "grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar" }, students.map(s => (React.createElement("button", { key: s.id, onClick: () => setSelectedStudent(s), className: "p-4 bg-slate-50 hover:bg-green-500 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700" }, s.name))))) : (React.createElement("div", { className: "animate-fade-in" },
+            React.createElement("div", { className: "mb-6 font-black text-green-700 bg-green-50 py-2 rounded-xl border border-green-100" }, selectedStudent.name),
+            React.createElement(PasswordInput, { value: accessCode, onChange: e => setAccessCode(e.target.value), placeholder: "\u8F38\u5165\u9A57\u8B49\u78BC", onEnter: handleLogin, themeColor: "green" }),
+            authError && React.createElement("p", { className: "text-red-500 text-sm mb-6 animate-bounce" }, authError),
+            React.createElement("div", { className: "flex gap-4" },
+                React.createElement("button", { onClick: () => { setSelectedStudent(null); setAccessCode(''); }, className: "flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors" }, "\u91CD\u9078"),
+                React.createElement("button", { onClick: handleLogin, className: "flex-1 bg-green-500 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-green-600 active:scale-95 transition-all" }, "\u9032\u5165"))))));
+    return (React.createElement("div", { className: `student-theme ${fontSize} animate-fade-in pb-32` },
+        React.createElement("div", { className: "w-full flex justify-center py-4 bg-transparent" },
+            React.createElement("div", { className: "w-full max-w-4xl px-4 md:px-8" },
+                React.createElement("div", { className: "bg-white/95 border border-green-100 shadow-md px-4 py-3 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between" },
+                    React.createElement("div", { className: "flex items-center gap-2 text-green-700 font-black text-base" },
+                        React.createElement(Icon, { name: "accessibility" }),
+                        " \u8F14\u52A9\u5DE5\u5177"),
+                    React.createElement("div", { className: "flex flex-wrap gap-4 items-center justify-center w-full md:w-auto text-sm" },
+                        React.createElement("div", { className: "flex bg-slate-100 rounded-lg p-1" }, [{ l: '小', v: 'text-base' }, { l: '中', v: 'text-xl' }, { l: '大', v: 'text-2xl' }].map(s => (React.createElement("button", { key: s.v, onClick: () => setFontSize(s.v), className: `px-3 py-1 rounded-md font-bold ${fontSize === s.v ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}` },
+                            "A",
+                            s.l)))),
+                        React.createElement("div", { className: "flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200" },
+                            React.createElement("span", { className: "text-xs font-bold text-slate-400" }, "\u8A9E\u901F"),
+                            React.createElement("input", { type: "range", min: "0.5", max: "2", step: "0.25", value: speechRate, onChange: (e) => setSpeechRate(parseFloat(e.target.value)), className: "w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" }),
+                            React.createElement("span", { className: "text-xs w-8 text-center font-bold text-green-600" },
+                                speechRate,
+                                "x")),
+                        React.createElement("div", { className: "flex gap-2" },
+                            React.createElement("select", { className: "bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 max-w-[120px]", onChange: e => setSelectedVoice(voices.find(v => v.name === e.target.value)) }, voices.map(v => React.createElement("option", { key: v.name, value: v.name }, v.name.replace('Microsoft', '').replace('Google', '')))),
+                            React.createElement("button", { onClick: () => speak("這是朗讀測試。", selectedVoice, speechRate), className: "bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 flex items-center gap-1 transition-colors" },
+                                React.createElement(Icon, { name: "play", className: "w-3 h-3" }),
+                                " \u8A66\u807D")))))),
+        React.createElement("div", { className: "max-w-4xl mx-auto p-4 md:p-8" },
+            React.createElement("div", { className: "bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-green-500 p-8 md:p-12 space-y-12" },
+                React.createElement("h2", { className: "text-3xl font-black text-center text-green-700" }, "\u81EA\u6211\u8A55\u4F30\u8ABF\u67E5\u8868"),
+                React.createElement("section", { className: "space-y-4" },
+                    React.createElement("div", { className: "flex items-start gap-2" },
+                        React.createElement("button", { onClick: () => speak("權益告知：老師有告訴我並和我討論這一學期我的課程安排與協助", selectedVoice, speechRate), className: "text-green-500 hover:scale-110 transition-transform mt-1" },
+                            React.createElement(Icon, { name: "volume-2", className: "w-8 h-8" })),
+                        React.createElement("h3", { className: "font-black text-green-800" }, "\u3010\u6B0A\u76CA\u544A\u77E5\u3011\u8001\u5E2B\u6709\u544A\u8A34\u6211\u4E26\u548C\u6211\u8A0E\u8AD6\u9019\u4E00\u5B78\u671F\u6211\u7684\u8AB2\u7A0B\u5B89\u6392\u8207\u5354\u52A9")),
+                    React.createElement("div", { className: "grid grid-cols-1 gap-3 pl-10" }, ["我知道，我同意", "我知道，我有其他想法", "我不知道，需要老師說明"].map(opt => (React.createElement("div", { key: opt, className: "flex flex-col gap-2" },
+                        React.createElement("div", { className: "flex items-center gap-2" },
+                            React.createElement("label", { className: `flex-1 p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_2 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}` },
+                                React.createElement("input", { type: "radio", className: "hidden", name: "rights_2", value: opt, checked: studentForm.rights_2 === opt, onChange: e => setStudentForm({ ...studentForm, rights_2: e.target.value }) }),
+                                React.createElement("span", { className: "font-black" }, opt)),
+                            React.createElement("button", { onClick: () => speak(opt, selectedVoice, speechRate), className: "text-green-400 hover:text-green-600 p-2 rounded-full hover:bg-green-100 transition-colors" },
+                                React.createElement(Icon, { name: "volume-2", className: "w-5 h-5" }))),
+                        opt === "我知道，我有其他想法" && studentForm.rights_2 === "我知道，我有其他想法" && (React.createElement("div", { className: "pl-4 animate-fade-in" },
+                            React.createElement(OtherInput, { placeholder: "\u8ACB\u5BEB\u4E0B\u4F60\u7684\u60F3\u6CD5...", value: studentForm.rights_2_other || '', onChange: e => setStudentForm({ ...studentForm, rights_2_other: e.target.value }) })))))))),
+                React.createElement("section", { className: "space-y-4" },
+                    React.createElement("div", { className: "flex items-start gap-2" },
+                        React.createElement("button", { onClick: () => speak("第一題，我覺得到潛能班上課，對自己幫助的程度？", selectedVoice, speechRate), className: "text-green-500 hover:scale-110 transition-transform mt-1" },
+                            React.createElement(Icon, { name: "volume-2", className: "w-8 h-8" })),
+                        React.createElement("h3", { className: "font-black text-green-800" }, "1. \u6211\u89BA\u5F97\u5230\u6F5B\u80FD\u73ED\u4E0A\u8AB2\uFF0C\u5C0D\u81EA\u5DF1\u5E6B\u52A9\u7684\u7A0B\u5EA6\uFF1F")),
+                    React.createElement(LikertScale, { name: "q1_level", value: studentForm.q1_level, onChange: (v) => setStudentForm({ ...studentForm, q1_level: v }), speak: speak, selectedVoice: selectedVoice, speechRate: speechRate, options: [
+                            { val: 5, emoji: '🤩', label: '非常有幫助' },
+                            { val: 4, emoji: '😊', label: '有幫助' },
+                            { val: 3, emoji: '😐', label: '普通' },
+                            { val: 2, emoji: '😕', label: '沒什麼幫助' },
+                            { val: 1, emoji: '😫', label: '完全沒幫助' }
+                        ] }),
+                    (studentForm.q1_level == 5 || studentForm.q1_level == 4) && (React.createElement("div", { className: "grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in" },
+                        React.createElement("p", { className: "text-sm text-slate-400 font-bold mb-2" }, "\u89BA\u5F97\u6709\u5E6B\u52A9\u7684\u5730\u65B9 (\u53EF\u8907\u9078)\uFF1A"),
+                        STD_Q1_OPTS.map(opt => React.createElement(StudentCheckbox, { key: opt, label: opt, checked: studentForm.q1.includes(opt), onChange: () => handleStudentCheck('q1', opt), onSpeak: () => speak(opt, selectedVoice, speechRate) })),
+                        React.createElement("div", { className: "block" },
+                            React.createElement(StudentCheckbox, { label: "\u5176\u4ED6", checked: studentForm.q1.includes('其他'), onChange: () => handleStudentCheck('q1', '其他') }),
+                            (studentForm.q1 || []).includes('其他') && React.createElement(OtherInput, { placeholder: "\u9084\u6709\u4EC0\u9EBC\u5E6B\u52A9...", value: studentForm.q1_other || '', onChange: e => setStudentForm({ ...studentForm, q1_other: e.target.value }) })))),
+                    studentForm.q1_level == 3 && React.createElement("div", { className: "pl-10" },
+                        React.createElement(OtherInput, { placeholder: "\u6709\u4EC0\u9EBC\u60F3\u88DC\u5145\u7684\u55CE\uFF1F", value: studentForm.q1_neutral_text || '', onChange: e => setStudentForm({ ...studentForm, q1_neutral_text: e.target.value }) })),
+                    (studentForm.q1_level === 2 || studentForm.q1_level === 1) && React.createElement("div", { className: "pl-10" },
+                        React.createElement(OtherInput, { placeholder: "\u70BA\u4EC0\u9EBC\u89BA\u5F97\u6C92\u4EC0\u9EBC\u5E6B\u52A9\u5462\uFF1F", value: studentForm.q1_dislike_text || '', onChange: e => setStudentForm({ ...studentForm, q1_dislike_text: e.target.value }) }))),
+                React.createElement("section", { className: "space-y-4" },
+                    React.createElement("div", { className: "flex items-start gap-2" },
+                        React.createElement("button", { onClick: () => speak("第二題，選出這學期我覺得有學到東西又有趣的課，可以選好多個", selectedVoice, speechRate), className: "text-green-500 hover:scale-110 transition-transform mt-1" },
+                            React.createElement(Icon, { name: "volume-2", className: "w-8 h-8" })),
+                        React.createElement("h3", { className: "font-black text-green-800" },
+                            "2. \u9078\u51FA\u9019\u5B78\u671F\u6211\u89BA\u5F97\u6709\u5B78\u5230\u6771\u897F\u53C8\u6709\u8DA3\u7684\u8AB2",
+                            React.createElement("span", { className: "text-sm font-normal text-slate-500 block mt-1" }, "(\u53EF\u8907\u9078)"))),
+                    React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10" },
+                        STD_Q2_OPTS.map(opt => React.createElement(StudentCheckbox, { key: opt, label: opt, checked: studentForm.q2.includes(opt), onChange: () => handleStudentCheck('q2', opt), onSpeak: () => speak(opt, selectedVoice, speechRate) })),
+                        React.createElement("div", { className: "block sm:col-span-2" },
+                            React.createElement(StudentCheckbox, { label: "\u5176\u4ED6", checked: studentForm.q2.includes('其他'), onChange: () => handleStudentCheck('q2', '其他') }),
+                            studentForm.q2.includes('其他') && React.createElement(OtherInput, { placeholder: "\u9084\u6709\u4EC0\u9EBC\u6709\u8DA3\u7684\u8AB2...", value: studentForm.q2_other || '', onChange: e => setStudentForm({ ...studentForm, q2_other: e.target.value }) })))),
+                React.createElement("section", { className: "space-y-4 bg-green-50/50 p-6 rounded-3xl border border-green-100" },
+                    React.createElement("div", { className: "flex items-start gap-2" },
+                        React.createElement("button", { onClick: () => speak("第三題，我喜歡到潛能班上課嗎？", selectedVoice, speechRate), className: "text-green-500 hover:scale-110 transition-transform mt-1" },
+                            React.createElement(Icon, { name: "volume-2", className: "w-8 h-8" })),
+                        React.createElement("h3", { className: "font-black text-green-800" }, "3. \u6211\u559C\u6B61\u5230\u6F5B\u80FD\u73ED\u4E0A\u8AB2\u55CE\uFF1F")),
+                    React.createElement(LikertScale, { name: "q3_level", value: studentForm.q3_level, onChange: (v) => setStudentForm({ ...studentForm, q3_level: v }), speak: speak, selectedVoice: selectedVoice, speechRate: speechRate, options: [
+                            { val: 5, emoji: '🥰', label: '超級喜歡' },
+                            { val: 4, emoji: '😀', label: '喜歡' },
+                            { val: 3, emoji: '🙂', label: '還好' },
+                            { val: 2, emoji: '☹️', label: '不太喜歡' },
+                            { val: 1, emoji: '😠', label: '很不喜歡' }
+                        ] }),
+                    (studentForm.q3_level == 5 || studentForm.q3_level == 4) && (React.createElement("div", { className: "mt-6 pl-10 animate-fade-in border-l-4 border-green-300" },
+                        React.createElement("div", { className: "flex items-center gap-2 mb-3" },
+                            React.createElement("h4", { className: "font-bold text-green-700 text-base" }, "\u2728 \u6211\u559C\u6B61\u5230\u6F5B\u80FD\u73ED\u4E0A\u8AB2\u7684\u539F\u56E0\uFF1A")),
+                        React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
+                            STD_Q3_LIKE_OPTS.map(opt => React.createElement(StudentCheckbox, { key: opt, label: opt, checked: studentForm.q3_like.includes(opt), onChange: () => handleStudentCheck('q3_like', opt), onSpeak: () => speak(opt, selectedVoice, speechRate) })),
+                            React.createElement("div", { className: "block sm:col-span-2" },
+                                React.createElement(StudentCheckbox, { label: "\u5176\u4ED6", checked: studentForm.q3_like.includes('其他'), onChange: () => handleStudentCheck('q3_like', '其他') }),
+                                (studentForm.q3_like || []).includes('其他') && React.createElement(OtherInput, { placeholder: "\u9084\u6709\u4EC0\u9EBC\u539F\u56E0...", value: studentForm.q3_like_other || '', onChange: e => setStudentForm({ ...studentForm, q3_like_other: e.target.value }) }))))),
+                    (studentForm.q3_level == 3) && (React.createElement("div", { className: "mt-6 pl-10 animate-fade-in border-l-4 border-amber-300" },
+                        React.createElement("div", { className: "flex items-center gap-2 mb-3" },
+                            React.createElement("h4", { className: "font-bold text-amber-600 text-base" }, "\uD83E\uDD14 \u6709\u4EC0\u9EBC\u60F3\u88DC\u5145\u8AAA\u660E\u7684\u55CE\uFF1F")),
+                        React.createElement("div", { className: "relative" },
+                            React.createElement("textarea", { className: "w-full p-4 rounded-xl border-2 border-slate-200 focus:border-amber-400 outline-none bg-white min-h-[100px]", placeholder: "\u8ACB\u5BEB\u4E0B\u4F86...", value: studentForm.q3_neutral_text || '', onChange: e => setStudentForm({ ...studentForm, q3_neutral_text: e.target.value }) }),
+                            React.createElement(SpeechInputButton, { onTranscript: (txt) => setStudentForm(p => ({ ...p, q3_neutral_text: (p.q3_neutral_text || '') + txt })) })))),
+                    (studentForm.q3_level == 2 || studentForm.q3_level == 1) && (React.createElement("div", { className: "mt-6 pl-10 animate-fade-in border-l-4 border-red-100 animate-fade-in" },
+                        React.createElement("p", { className: "text-sm font-bold text-red-400" }, "\u4E0D\u559C\u6B61\u5230\u6F5B\u80FD\u73ED\u4E0A\u8AB2\u7684\u539F\u56E0 (\u53EF\u8907\u9078)\uFF1A"),
+                        STD_Q3_DISLIKE_OPTS.map(opt => React.createElement(StudentCheckbox, { key: opt, label: opt, checked: studentForm.q3_dislike.includes(opt), onChange: () => handleStudentCheck('q3_dislike', opt), onSpeak: () => speak(opt, selectedVoice, speechRate) })),
+                        React.createElement(StudentCheckbox, { label: "\u5176\u4ED6", checked: studentForm.q3_dislike.includes('其他'), onChange: () => handleStudentCheck('q3_dislike', '其他') }),
+                        studentForm.q3_dislike.includes('其他') && React.createElement(OtherInput, { placeholder: "\u8ACB\u5BEB\u4E0B\u539F\u56E0...", value: studentForm.q3_dislike_text || '', onChange: e => setStudentForm({ ...studentForm, q3_dislike_text: e.target.value }) })))),
+                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-8" },
+                    React.createElement("div", { className: "space-y-2 relative" },
+                        React.createElement("label", { className: "font-black text-green-700 flex items-center gap-2" },
+                            React.createElement("button", { onClick: () => speak("我想對自己說的話", selectedVoice, speechRate) },
+                                React.createElement(Icon, { name: "volume-2", className: "w-5 h-5" })),
+                            "\uD83D\uDCCC \u6211\u60F3\u5C0D\u81EA\u5DF1\u8AAA\u7684\u8A71\uFF1A"),
+                        React.createElement("div", { className: "relative" },
+                            React.createElement("textarea", { className: "w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]", placeholder: "\u4F8B\u5982\uFF1A\u9019\u5B78\u671F\u6709\u52AA\u529B\u5B8C\u6210\u4F5C\u696D\uFF0C\u6211\u5F88\u68D2!\uFF0F\u4E0B\u5B78\u671F\u518D\u7E7C\u7E8C\u52AA\u529B!", value: studentForm.self_encourage, onChange: e => setStudentForm({ ...studentForm, self_encourage: e.target.value }) }),
+                            React.createElement(SpeechInputButton, { onTranscript: (t) => setStudentForm(p => ({ ...p, self_encourage: p.self_encourage + t })) }))),
+                    React.createElement("div", { className: "space-y-2 relative" },
+                        React.createElement("label", { className: "font-black text-green-700 flex items-center gap-2" },
+                            React.createElement("button", { onClick: () => speak("下學期，我希望自己可以", selectedVoice, speechRate) },
+                                React.createElement(Icon, { name: "volume-2", className: "w-5 h-5" })),
+                            "\uD83D\uDCCC \u4E0B\u5B78\u671F\uFF0C\u6211\u5E0C\u671B\u81EA\u5DF1\u53EF\u4EE5\uFF1A"),
+                        React.createElement("div", { className: "relative" },
+                            React.createElement("textarea", { className: "w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]", value: studentForm.next_semester_hope, onChange: e => setStudentForm({ ...studentForm, next_semester_hope: e.target.value }) }),
+                            React.createElement(SpeechInputButton, { onTranscript: (t) => setStudentForm(p => ({ ...p, next_semester_hope: p.next_semester_hope + t })) }))),
+                    React.createElement("div", { className: "space-y-2 relative md:col-span-2" },
+                        React.createElement("label", { className: "font-black text-green-700 flex items-center gap-2" },
+                            React.createElement("button", { onClick: () => speak("想給潛能班老師的話", selectedVoice, speechRate) },
+                                React.createElement(Icon, { name: "volume-2", className: "w-5 h-5" })),
+                            "\uD83D\uDCCC \u60F3\u7D66\u6F5B\u80FD\u73ED\u8001\u5E2B\u7684\u8A71\uFF1A"),
+                        React.createElement("div", { className: "relative" },
+                            React.createElement("textarea", { className: "w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]", value: studentForm.teacher_words, onChange: e => setStudentForm({ ...studentForm, teacher_words: e.target.value }) }),
+                            React.createElement(SpeechInputButton, { onTranscript: (t) => setStudentForm(p => ({ ...p, teacher_words: p.teacher_words + t })) })))),
+                React.createElement("div", { className: "pt-6 flex gap-4 text-base" },
+                    React.createElement("button", { onClick: () => { onSwitchRole('home'); }, className: "px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50" }, "\u66AB\u6642\u96E2\u958B"),
+                    React.createElement("button", { onClick: () => submitFeedback('student'), className: "flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-100 hover:bg-green-600 transition-colors" }, "\u5B8C\u6210\u63D0\u4EA4")))),
+        React.createElement("div", { className: "w-full text-center py-8 text-slate-300 text-xs no-print font-bold" }, "\u5B89\u6771\u6F5B\u80FD\u73ED")));
+};
+const App = () => {
+    const [user, setUser] = useState(null);
+    const [role, setRole] = useState('home');
+    const [students, setStudents] = useState([]);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [notification, setNotification] = useState(null);
+    const [adminPwd, setAdminPwd] = useState('');
+    const [isAdminAuth, setIsAdminAuth] = useState(false);
+    const [accessCode, setAccessCode] = useState('');
+    const [isUserAuth, setIsUserAuth] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [teacherForm, setTeacherForm] = useState({});
+    const [studentForm, setStudentForm] = useState({
+        q1: [], q1_other: '', q1_level: null, q1_neutral_text: '', q1_dislike_text: '',
+        q2: [], q2_other: '',
+        q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '',
+        rights_2: '', rights_2_other: '',
+        self_encourage: '', next_semester_hope: '', teacher_words: ''
+    });
+    useEffect(() => {
+        let cancelled = false;
+        let unsubscribeAuth = null;
+        let unsubscribeSnapshot = null;
+        const init = async () => {
+            try {
+                const firebase = window.IEP_FB || (window.IEP_FB_READY ? await window.IEP_FB_READY : null);
+                if (cancelled)
+                    return;
+                if (!firebase) {
+                    throw window.IEP_FB_ERROR || new Error('Firebase 套件載入失敗');
                 }
-            }, []);
-            const speak = (text, voice, rate = 1) => {
-                if (!supported) return;
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                if (voice) utterance.voice = voice;
-                utterance.rate = rate; window.speechSynthesis.speak(utterance);
-            };
-            return { voices, speak, supported };
-        };
-
-        // --- Basic UI Components (Declared before use) ---
-
-        const StudentCheckbox = ({ label, checked, onChange, onSpeak }) => (
-            <label className={`flex items-start gap-3 cursor-pointer group p-3 rounded-2xl border-2 transition-all relative ${checked ? 'bg-green-50 border-green-500' : 'bg-white border-slate-200 hover:border-green-300'}`}>
-                <input type="checkbox" className="hidden" checked={checked} onChange={onChange} />
-                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${checked ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 bg-slate-50'}`}>
-                    {checked && <Icon name="check" className="w-4 h-4" />}
-                </div>
-                <span className={`flex-1 ${checked ? 'text-green-800' : 'text-slate-600'}`}>{label}</span>
-                {onSpeak && <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSpeak(); }} className="text-green-400 hover:text-green-600 p-1"><Icon name="volume-2" className="w-4 h-4" /></button>}
-            </label>
-        );
-
-        const LikertScale = ({ name, value, onChange, options, speak, selectedVoice, speechRate, isTeacher = false }) => (
-            <div className={`flex flex-wrap gap-2 md:gap-4 justify-start py-4 ${isTeacher ? '' : 'justify-center'}`}>
-                {options.map((opt, idx) => (
-                    <label 
-                        key={opt.val} 
-                        className={`flex flex-col items-center gap-2 cursor-pointer p-3 rounded-2xl border-2 transition-all w-24 md:w-28 text-center ${value == opt.val ? (isTeacher ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-lg scale-105' : 'bg-green-500 border-green-500 text-white shadow-lg scale-105') : 'bg-white border-slate-200 hover:border-slate-300 text-slate-500'}`}
-                        onClick={(e) => {
-                             if (value == opt.val) {
-                                 e.preventDefault();
-                                 onChange(null);
-                             }
-                        }}
-                    >
-                        <input type="radio" name={name} className="hidden" value={opt.val} checked={value == opt.val} onChange={() => onChange(opt.val)} />
-                        {opt.emoji && <span className="text-2xl">{opt.emoji}</span>}
-                        {isTeacher && !opt.emoji && <span className="text-2xl font-black">{opt.val}</span>}
-                        <span className="text-xs font-black">{opt.label}</span>
-                        {!isTeacher && speak && (
-                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); speak(opt.label, selectedVoice, speechRate); }} className={`p-1 rounded-full ${value == opt.val ? 'text-green-200 hover:bg-green-600' : 'text-slate-300 hover:text-green-500'}`}>
-                                <Icon name="volume-2" className="w-3 h-3" />
-                            </button>
-                        )}
-                    </label>
-                ))}
-            </div>
-        );
-
-        const OtherInput = ({ value, onChange, placeholder, color = "green" }) => (
-            <div className="relative w-full mt-2 animate-fade-in">
-                <input type="text" className={`w-full p-3 pr-10 rounded-xl border-2 outline-none transition-all ${color === 'green' ? 'border-green-200 focus:border-green-500' : 'border-slate-200 focus:border-blue-500'} bg-white`} placeholder={placeholder} value={value} onChange={onChange} onClick={e => e.stopPropagation()} />
-                <SpeechInputButton onTranscript={(t) => { onChange({ target: { value: value + t } }); }} />
-            </div>
-        );
-
-        // --- Data Constants ---
-        
-        // 導師題目二的向度群組
-        const TEACHER_Q2_GROUPS = [
-            { title: '學習態度與認知', items: ["注意力", "記憶力", "學習動機"] },
-            { title: '生活適應與溝通', items: ["生活自理能力", "環境適應", "活動參與", "聽覺理解能力", "口語表達能力"] },
-            { title: '情緒與人際互動', items: ["情緒發展與調節", "挫折容忍度", "人際關係與互動"] },
-            { title: '國語文能力', items: ["拼音能力", "識字能力", "寫字能力", "閱讀理解能力", "寫作與造句能力"] },
-            { title: '數學能力', items: ["數學基本概念", "計算能力", "文字題解題能力", "時間觀念應用"] }
-        ];
-        
-        const STD_Q1_OPTS = [
-            "教我學習方法和策略,讓我比較容易聽懂與學會", 
-            "老師會看我的學習狀況,調整成適合我學習的內容", 
-            "上課人數少,我比較能得到老師的關心與協助", 
-            "可以讓我比較有信心,增加自信", 
-            "可以讓我知道我其實只是學得比較慢,慢慢學,多練習,還是能學會", 
-            "可以幫助我處理情緒,調整想法或用更好的方法交朋友",
-            "老師會慢慢教我", 
-            "聽不懂可以再問一次", 
-            "我比較聽得懂", 
-            "有人提醒我該做什麼", 
-            "我有學到有用的東西", 
-            "我比較不容易生氣", 
-            "生氣時,有人會幫我", 
-            "我比較不緊張", 
-            "我知道心情不好時可以怎麼做", 
-            "我比較敢說出自己的想法", 
-            "有人願意聽我說話", 
-            "我學會用說的,不用吵的", 
-            "我比較會輪流、等待", 
-            "跟同學相處比較好", 
-            "知道吵架時可以怎麼做"
-        ];
-
-        const STD_Q2_OPTS = ["學習策略", "國語課", "數學課", "社會技巧"];
-        
-        const STD_Q3_LIKE_OPTS = [
-            "課程好玩有趣", 
-            "上課比較聽得懂", 
-            "可以得到平板或電腦的協助", 
-            "國語進步了", 
-            "數學進步了", 
-            "說話更清楚了", 
-            "學到做事的方法", 
-            "可以得到積點與換獎品",
-            "上課比較輕鬆",
-            "人比較少,我比較安心",
-            "上課不會那麼吵",
-            "這裡讓我覺得安全",
-            "老師會幫我",
-            "老師會提醒我",
-            "老師會聽我說",
-            "老師不會一直罵人",
-            "在這裡我比較有信心",
-            "我比較不怕做錯",
-            "我覺得自己做得到",
-            "跟同學在一起比較輕鬆",
-            "同學比較懂我"
-        ];
-
-        const STD_Q3_DISLIKE_OPTS = ["有些內容對我來說太簡單／太難", "上課方式有時不太適合我", "我比較喜歡在原班上課", "有時會覺得學習壓力有點大", "會擔心被同學知道我來潛能班", "有時會覺得不好意思或緊張", "我不太習慣和不認識的同學一起上課", "會錯過原班我喜歡的課", "上課時間讓我覺得有點累", "來回教室會影響我上課心情"];
-
-        // --- Page Components ---
-
-        const LandingPage = ({ onSwitchRole }) => (
-            <div className="max-w-[1400px] mx-auto p-4 md:p-8 text-center py-10 md:py-20 animate-fade-in">
-                <h1 className="text-4xl md:text-5xl font-black mb-16 uppercase tracking-tighter text-slate-800 drop-shadow-sm">IEP 會議意見回饋系統</h1>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                    {[{ r: 'sped', l: '特師入口', i: 'settings', d: '管理個案與報表', c: 'blue' }, { r: 'teacher', l: '導師入口', i: 'clipboard-list', d: '填寫觀察回饋', c: 'indigo' }, { r: 'student', l: '學生入口', i: 'smile', d: '自我評估', c: 'emerald' }].map(item => (
-                        <div key={item.r} onClick={() => onSwitchRole(item.r)} className={`p-10 bg-white rounded-[40px] border-2 border-slate-100 shadow-lg hover:shadow-2xl cursor-pointer group transition-all border-b-[8px] hover:-translate-y-2 relative overflow-hidden`}>
-                            <div className={`absolute top-0 left-0 w-full h-2 bg-${item.c}-500`}></div>
-                            <div className={`w-20 h-20 bg-${item.c}-50 text-${item.c}-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner`}><Icon name={item.i} className="w-10 h-10" /></div>
-                            <h3 className="text-2xl font-black mb-2 text-slate-800">{item.l}</h3>
-                            <p className="text-slate-400 text-sm font-black opacity-60 uppercase">{item.d}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-
-        const SpedLogin = ({ adminPwd, setAdminPwd, handleLogin, authError }) => (
-            <UnifiedLoginCard title="管理端驗證" iconName="settings" colorClass="bg-slate-800 text-white" topBorderColor="border-slate-800">
-                <PasswordInput value={adminPwd} onChange={e => setAdminPwd(e.target.value)} placeholder="請輸入管理代碼" onEnter={handleLogin} />
-                {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
-                <button onClick={handleLogin} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-black active:scale-95 transition-all">確認登入</button>
-            </UnifiedLoginCard>
-        );
-
-        const SpedDashboard = ({ students, handleCreateStudent, handleDeleteStudent, handleUpdateStudent, handleClearAllFeedbacks, showToast }) => {
-            const [newName, setNewName] = useState('');
-            const [newCode, setNewCode] = useState('');
-            const [newManager, setNewManager] = useState('李老師');
-            const [viewingId, setViewingId] = useState(null); 
-            const [editingId, setEditingId] = useState(null); 
-            const [editName, setEditName] = useState('');
-            const [editCode, setEditCode] = useState('');
-            const [editManager, setEditManager] = useState('');
-            const [deleteTargetId, setDeleteTargetId] = useState(null);
-            const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
-
-            const startEdit = (student) => {
-                setEditingId(student.id);
-                setEditName(student.name);
-                setEditCode(student.accessCode);
-                setEditManager(student.manager);
-            };
-
-            const saveEdit = () => {
-                if(editingId) {
-                    handleUpdateStudent(editingId, { name: editName, accessCode: editCode, manager: editManager });
-                    setEditingId(null);
-                }
-            };
-
-            const confirmDelete = async () => {
-                if(deleteTargetId) {
-                    await handleDeleteStudent(deleteTargetId);
-                    setDeleteTargetId(null);
-                }
-            };
-
-            const confirmResetAll = async () => {
-                await handleClearAllFeedbacks();
-                setResetConfirmOpen(false);
-            };
-
-            return (
-                <div className="max-w-6xl mx-auto p-4 md:p-8 animate-fade-in pb-24">
-                    <ConfirmDialog 
-                        isOpen={!!deleteTargetId} 
-                        title="確認刪除個案？" 
-                        message="此動作將永久刪除該學生的所有資料，包含已填寫的回饋內容，且無法復原。" 
-                        onConfirm={confirmDelete} 
-                        onCancel={() => setDeleteTargetId(null)} 
-                    />
-
-                    <ConfirmDialog 
-                        isOpen={resetConfirmOpen} 
-                        title="確認一鍵重置期末？" 
-                        message="這會清除全部個案的導師回饋、學生評估等記錄。這常用於期初會議結束後，重設以進入期末會議調查。此動作無法復原！" 
-                        onConfirm={confirmResetAll} 
-                        onCancel={() => setResetConfirmOpen(false)}
-                        confirmBtnColor="bg-amber-600 hover:bg-amber-700 shadow-amber-200"
-                        confirmText="確定重置"
-                    />
-
-                    <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-                        <h1 className="text-3xl font-black text-slate-800">特教老師管理後台</h1>
-                        <div className="flex flex-wrap gap-3 justify-center">
-                            <button onClick={() => setResetConfirmOpen(true)} className="bg-amber-50 text-amber-600 border-2 border-amber-200 px-6 py-3 rounded-2xl font-black shadow-sm hover:bg-amber-100 flex items-center gap-2 transition-all active:scale-95">
-                                <Icon name="rotate-ccw" className="w-5 h-5"/> 一鍵重置期末 (清除回饋)
-                            </button>
-                            <button onClick={() => downloadAllZip(students)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:bg-indigo-700 flex items-center gap-2 transition-all active:scale-95">
-                                <Icon name="download" className="w-5 h-5"/> 下載全部 (含彙整 Excel)
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-white p-8 rounded-[30px] shadow-sm mb-10 border border-slate-200">
-                        <h3 className="font-black text-slate-500 mb-4 flex items-center gap-2"><Icon name="user-plus" className="w-5 h-5"/> 建立新個案</h3>
-                        <div className="flex flex-col md:flex-row gap-6 items-end">
-                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">學生姓名</label><input placeholder="輸入姓名" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all" value={newName} onChange={e=>setNewName(e.target.value)} /></div>
-                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">登入密碼 (驗證碼)</label><input placeholder="設定密碼" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 transition-all" value={newCode} onChange={e=>setNewCode(e.target.value)} /></div>
-                            <div className="flex-1 w-full space-y-2"><label className="text-xs font-bold text-slate-400 ml-1">個管老師</label><div className="relative"><select className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 font-black outline-none focus:border-blue-500 appearance-none transition-all cursor-pointer" value={newManager} onChange={e=>setNewManager(e.target.value)}><option value="李老師">李老師</option><option value="傅老師">傅老師</option></select><div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" className="w-5 h-5" /></div></div></div>
-                            <button className="w-full md:w-auto bg-slate-800 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-black hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2" onClick={()=>{ if(newName && newCode) { handleCreateStudent(newName, newCode, newManager); setNewName(''); setNewCode(''); } else { showToast("請輸入完整資料", 'error'); } }}><Icon name="plus" className="w-5 h-5" /> 新增</button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-6">
-                        {students.map(s => (
-                            <div key={s.id} className="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100 hover:shadow-xl transition-all relative">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                    {editingId === s.id ? (
-                                        <div className="flex-1 flex gap-4 w-full">
-                                            <input className="p-2 border rounded-xl flex-1" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="姓名" />
-                                            <input className="p-2 border rounded-xl w-32" value={editCode} onChange={e=>setEditCode(e.target.value)} placeholder="密碼" />
-                                            <select className="p-2 border rounded-xl w-32" value={editManager} onChange={e=>setEditManager(e.target.value)}><option value="李老師">李老師</option><option value="傅老師">傅老師</option></select>
-                                            <button onClick={saveEdit} className="bg-green-500 text-white px-4 rounded-xl font-bold"><Icon name="save" className="w-4 h-4"/></button>
-                                            <button onClick={()=>setEditingId(null)} className="bg-slate-200 text-slate-500 px-4 rounded-xl font-bold"><Icon name="x" className="w-4 h-4"/></button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black shadow-inner ${s.manager === '傅老師' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>{s.name[0]}</div>
-                                            <div>
-                                                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                                                    {s.name} 
-                                                    <button onClick={()=>startEdit(s)} className="text-slate-300 hover:text-blue-500"><Icon name="edit-3" className="w-4 h-4"/></button>
-                                                </h3>
-                                                <div className="flex gap-2 mt-1">
-                                                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-lg font-bold">密碼: {s.accessCode}</span>
-                                                    <span className={`text-[10px] px-2 py-1 rounded-lg font-bold ${s.manager === '傅老師' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>{s.manager}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center gap-4 w-full md:w-auto justify-between">
-                                        <div className="flex gap-3 text-sm">
-                                            <div className={`px-3 py-1 rounded-xl flex items-center gap-1 border ${s.teacherFeedback ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}><Icon name="user-check" className="w-3 h-3" /> 導師{s.teacherFeedback ? 'OK' : ''}</div>
-                                            <div className={`px-3 py-1 rounded-xl flex items-center gap-1 border ${s.studentFeedback ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}><Icon name="smile" className="w-3 h-3" /> 學生{s.studentFeedback ? 'OK' : ''}</div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button onClick={()=>downloadSingleDoc(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="下載 Word"><Icon name="file-text" className="w-5 h-5" /></button>
-                                            <button onClick={()=>setViewingId(viewingId === s.id ? null : s.id)} className={`px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${viewingId === s.id ? 'bg-slate-800 text-white' : 'bg-white border-2 border-slate-200 hover:border-slate-400'}`}>
-                                                {viewingId === s.id ? '收起' : '查看詳情'} <Icon name={viewingId === s.id ? "chevron-up" : "chevron-down"} className="w-4 h-4"/>
-                                            </button>
-                                            <button onClick={()=>setDeleteTargetId(s.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Icon name="trash-2" className="w-5 h-5" /></button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {viewingId === s.id && (
-                                    <div className="mt-6 pt-6 border-t-2 border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-                                            <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
-                                                <h4 className="font-black text-blue-700 mb-4 flex justify-between">導師回饋 {s.teacherFeedback?.submittedAt && <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-1 rounded">{new Date(s.teacherFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
-                                                {s.teacherFeedback ? (
-                                                    <div className="space-y-4 text-sm text-slate-700">
-                                                        <p><strong>進步情形：</strong>{s.teacherFeedback.tq1_progress} {s.teacherFeedback.tq1_level ? `(${s.teacherFeedback.tq1_level}分)` : ''}</p>
-                                                        
-                                                        <p><strong>教學輔導向度：</strong>{s.teacherFeedback.tq2_help?.join(', ')} {s.teacherFeedback.tq2_other ? `其他：${s.teacherFeedback.tq2_other}` : ''}</p>
-                                                        
-                                                        <p><strong>優勢與亮點：</strong>{s.teacherFeedback.tq3_strength}</p>
-                                                        
-                                                        <p><strong>策略類化情形：</strong>{s.teacherFeedback.tq4_generalization}</p>
-
-                                                        <p><strong>評量作業調整：</strong>{s.teacherFeedback.tq5_adjustment} {s.teacherFeedback.tq5_adjustment === '其他需求' ? `(${s.teacherFeedback.tq5_other})` : ''}</p>
-                                                        
-                                                        <p><strong>原班適應挑戰：</strong>{s.teacherFeedback.tq6_challenge === 'yes' ? s.teacherFeedback.tq6_desc : (s.teacherFeedback.tq6_challenge === 'no' ? '無特別狀況' : '')}</p>
-
-                                                        <p><strong>親師溝通協作：</strong>{s.teacherFeedback.tq7_communication} {s.teacherFeedback.tq7_communication === '希望潛能班協助與家長溝通的事項' ? `(${s.teacherFeedback.tq7_other})` : ''}</p>
-                                                        
-                                                        <p><strong>補充說明：</strong>{s.teacherFeedback.tq8_comment}</p>
-                                                    </div>
-                                                ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
-                                            </div>
-                                            <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100">
-                                                <h4 className="font-black text-green-700 mb-4 flex justify-between">學生回饋 {s.studentFeedback?.submittedAt && <span className="text-[10px] bg-green-200 text-green-800 px-2 py-1 rounded">{new Date(s.studentFeedback.submittedAt).toLocaleDateString()}</span>}</h4>
-                                                {s.studentFeedback ? (
-                                                    <div className="space-y-4 text-sm text-slate-700">
-                                                        <div className="bg-white/60 p-3 rounded-xl border border-green-200 mb-3">
-                                                            <p className="font-bold text-green-800 mb-1 border-b border-green-100 pb-1">【權益告知】</p>
-                                                            <p>權益告知：{s.studentFeedback.rights_2 || '未填'} {s.studentFeedback.rights_2 === '我知道，我有其他想法' ? `(想法：${s.studentFeedback.rights_2_other || ''})` : ''}</p>
-                                                        </div>
-
-                                                        <p><strong>幫助程度 (1-5)：</strong>{s.studentFeedback.q1_level || '-'}</p>
-                                                        <p><strong>具體幫助：</strong>{s.studentFeedback.q1?.join(', ')} {s.studentFeedback.q1_other}</p>
-                                                        {s.studentFeedback.q1_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q1_neutral_text}</p>}
-                                                        {s.studentFeedback.q1_dislike_text && <p><strong>沒幫助原因：</strong>{s.studentFeedback.q1_dislike_text}</p>}
-                                                        <p><strong>有趣課程：</strong>{s.studentFeedback.q2?.join(', ')} {s.studentFeedback.q2_other}</p>
-                                                        <p><strong>喜好程度 (1-5)：</strong>{s.studentFeedback.q3_level || '-'}</p>
-                                                        <p><strong>喜歡原因：</strong>{s.studentFeedback.q3_like?.join(', ')} {s.studentFeedback.q3_like_other}</p>
-                                                        {s.studentFeedback.q3_neutral_text && <p><strong>普通補充：</strong>{s.studentFeedback.q3_neutral_text}</p>}
-                                                        <p><strong>不喜歡原因：</strong>{s.studentFeedback.q3_dislike_text}</p>
-                                                        <p><strong>給老師的話：</strong>{s.studentFeedback.teacher_words}</p>
-                                                    </div>
-                                                ) : <p className="text-slate-400 text-sm">尚未填寫</p>}
-                                            </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        const TeacherView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, teacherForm, setTeacherForm, submitFeedback, onSwitchRole }) => {
-            
-            const handleTeacherCheck = (field, value) => {
-                const current = teacherForm[field] || [];
-                const next = current.includes(value) ? current.filter(x => x !== value) : [...current, value];
-                setTeacherForm({ ...teacherForm, [field]: next });
-            };
-
-            if(!selectedStudent || !isUserAuth) return (
-                <UnifiedLoginCard title="導師登入" iconName="clipboard-list" colorClass="bg-blue-600 text-white" topBorderColor="border-blue-600">
-                    {!selectedStudent ? (
-                        <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {students.map(s => (<button key={s.id} onClick={() => setSelectedStudent(s)} className="p-4 bg-slate-50 hover:bg-blue-600 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700">{s.name}</button>))}
-                        </div>
-                    ) : (
-                        <div>
-                            <div className="mb-6 font-black text-blue-700 bg-blue-50 py-2 rounded-xl border border-blue-100">{selectedStudent.name}</div>
-                            <PasswordInput value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="驗證碼" onEnter={handleLogin} />
-                            {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
-                            <div className="flex gap-4">
-                                <button onClick={() => { setSelectedStudent(null); setAccessCode(''); }} className="flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">重選</button>
-                                <button onClick={handleLogin} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all">進入</button>
-                            </div>
-                        </div>
-                    )}
-                </UnifiedLoginCard>
-            );
-            return (
-                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-24">
-                    <div className="bg-white rounded-[40px] shadow-xl overflow-hidden">
-                        <div className="bg-blue-600 p-8 md:p-12 text-white">
-                            <h2 className="text-3xl md:text-4xl font-black mb-4">安東潛能班 學生學習回饋表</h2>
-                            <p className="opacity-90 font-bold mb-6 text-blue-100 leading-relaxed">
-                                親愛的導師，您好：<br/>
-                                感謝您這學期對學生的悉心照顧與指導！為了讓潛能班的教學與輔導能更有效協同原班級的需求，並促進三方（導師、潛能班、家長）的合作，懇請您撥冗填寫此回饋表。您的寶貴觀察與意見，將是我們調整下學期個別化教育計畫（IEP）的重要依據。
-                            </p>
-                            <div className="inline-block bg-white/20 px-4 py-2 rounded-xl font-black">填寫學生：{selectedStudent.name}</div>
-                        </div>
-                        
-                        <div className="p-8 md:p-12 space-y-12">
-                            {/* Q1 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（一） 整體進步情形評估</h3>
-                                <p className="text-sm text-slate-500 mb-6 pl-4 font-bold">您觀察該生本學期在原班級的整體「學習與適應情形」，是否有進步？(請勾選，5 分為進步顯著，1 分為尚無明顯進步)</p>
-                                <div className="pl-4">
-                                    <LikertScale 
-                                        name="tq1_level" 
-                                        value={teacherForm.tq1_level} 
-                                        onChange={(v) => {
-                                            const labels = {5: '進步顯著 (表現亮眼)', 4: '穩定成長 (有進步)', 3: '維持平穩 (普通)', 2: '進步緩慢', 1: '尚無明顯進步 (需多加強)'};
-                                            setTeacherForm({...teacherForm, tq1_level: v, tq1_progress: labels[v]});
-                                        }}
-                                        isTeacher={true}
-                                        options={[
-                                            {val: 5, label: '進步顯著'},
-                                            {val: 4, label: '穩定成長'},
-                                            {val: 3, label: '維持平穩'},
-                                            {val: 2, label: '進步緩慢'},
-                                            {val: 1, label: '尚無明顯進步'}
-                                        ]}
-                                    />
-                                    {teacherForm.tq1_level && <p className="mt-2 text-blue-600 font-bold">已選擇：{teacherForm.tq1_progress}</p>}
-                                </div>
-                            </section>
-
-                            {/* Q2 */}
-                            <section>
-                                <h3 className="font-black mb-4 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（二） 教學與輔導向度確認 <span className="text-sm text-slate-400 font-normal">(可複選)</span></h3>
-                                <p className="text-sm text-slate-500 mb-6 pl-4 font-bold">您認為潛能班未來可以持續加強該生哪些向度的教學與輔導？</p>
-                                <div className="space-y-6 pl-4">
-                                    {TEACHER_Q2_GROUPS.map(group => (
-                                        <div key={group.title} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <h4 className="font-black text-slate-700 mb-3">【{group.title}】</h4>
-                                            <div className="flex flex-wrap gap-3">
-                                                {group.items.map(o => {
-                                                    const isChecked = (teacherForm.tq2_help||[]).includes(o);
-                                                    return (
-                                                        <label key={o} className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl transition-all ${isChecked ? 'bg-blue-100 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'} border`}>
-                                                            <input type="checkbox" checked={isChecked} onChange={()=>handleTeacherCheck('tq2_help', o)} className="hidden"/>
-                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}`}>
-                                                                {isChecked && <Icon name="check" className="w-3 h-3" />}
-                                                            </div>
-                                                            <span className={`text-sm ${isChecked ? 'font-black text-blue-800' : 'font-bold text-slate-600'}`}>{o}</span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                         <h4 className="font-black text-slate-700 mb-3">【其他能力】</h4>
-                                         <div className="flex items-center gap-3">
-                                            <label className={`flex items-center gap-2 cursor-pointer px-3 py-2 rounded-xl transition-all ${(teacherForm.tq2_help||[]).includes('其他') ? 'bg-blue-100 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'} border`}>
-                                                <input type="checkbox" checked={(teacherForm.tq2_help||[]).includes('其他')} onChange={()=>handleTeacherCheck('tq2_help', '其他')} className="hidden"/>
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center ${(teacherForm.tq2_help||[]).includes('其他') ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}`}>
-                                                    {(teacherForm.tq2_help||[]).includes('其他') && <Icon name="check" className="w-3 h-3" />}
-                                                </div>
-                                                <span className={`text-sm ${(teacherForm.tq2_help||[]).includes('其他') ? 'font-black text-blue-800' : 'font-bold text-slate-600'}`}>其他</span>
-                                            </label>
-                                            {(teacherForm.tq2_help||[]).includes('其他') && (
-                                                <input type="text" className="flex-1 p-2 rounded-xl border border-slate-200 outline-none focus:border-blue-500 text-sm font-bold" placeholder="請說明..." value={teacherForm.tq2_other || ''} onChange={e => setTeacherForm({...teacherForm, tq2_other: e.target.value})} />
-                                            )}
-                                         </div>
-                                    </div>
-                                </div>
-                            </section>
-
-                            {/* Q3 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（三） 優勢與亮點觀察</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold leading-relaxed">您觀察該生本學期在原班級中，表現最好的地方、最熱心參與的事物，或是展現出的優點為何？（例如：體育表現、繪畫天賦、樂於助人、禮貌貼心等）</p>
-                                <div className="pl-4">
-                                    <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors min-h-[100px]" value={teacherForm.tq3_strength||''} onChange={e=>setTeacherForm({...teacherForm, tq3_strength:e.target.value})}/>
-                                </div>
-                            </section>
-
-                            {/* Q4 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（四） 學習技巧與策略的「類化」情形</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold">該生是否能將潛能班學到的策略（如：自我冷靜技巧、專注力提示、行為常規）運用在原班的日常作息中？</p>
-                                <div className="space-y-3 pl-4">
-                                    {["經常能主動運用", "偶爾能在提醒下運用", "尚未觀察到能運用的情形", "難以觀察 / 不清楚"].map(opt => (
-                                        <label key={opt} className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq4_generalization === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}`}>
-                                            <input type="radio" checked={teacherForm.tq4_generalization === opt} onChange={()=>setTeacherForm({...teacherForm, tq4_generalization: opt})} className="w-5 h-5 accent-blue-600"/>
-                                            <span className="font-bold">{opt}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Q5 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（五） 評量與作業調整需求</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold">在原班級的日常作業或定期評量中，是否有需要潛能班共同協助調整的地方？</p>
-                                <div className="space-y-3 pl-4">
-                                    {[
-                                        "無特別需求", 
-                                        "需要協助調整日常作業（例如：簡化內容、減少份量、改以口頭回答等）", 
-                                        "需要協助評量調整（例如：報讀、延長時間、獨立試場等）",
-                                        "其他需求"
-                                    ].map(opt => (
-                                        <div key={opt}>
-                                            <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq5_adjustment === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}`}>
-                                                <input type="radio" checked={teacherForm.tq5_adjustment === opt} onChange={()=>setTeacherForm({...teacherForm, tq5_adjustment: opt})} className="w-5 h-5 accent-blue-600 mt-0.5"/>
-                                                <span className="font-bold">{opt}</span>
-                                            </label>
-                                            {opt === "其他需求" && teacherForm.tq5_adjustment === "其他需求" && (
-                                                <div className="pl-10 mt-2 animate-fade-in">
-                                                    <input type="text" className="w-full p-3 rounded-xl border border-blue-200 outline-none focus:border-blue-500 text-sm font-bold" placeholder="請說明其他需求..." value={teacherForm.tq5_other || ''} onChange={e => setTeacherForm({...teacherForm, tq5_other: e.target.value})} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Q6 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（六） 原班級適應與挑戰</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold">該生目前在原班級中，是否有其他需要協助或較具挑戰性的狀況？</p>
-                                <div className="space-y-3 pl-4">
-                                    <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 border-slate-100 hover:border-blue-200 transition-all">
-                                        <input type="radio" checked={teacherForm.tq6_challenge === 'no'} onChange={()=>setTeacherForm({...teacherForm, tq6_challenge: 'no', tq6_desc: ''})} className="w-5 h-5 accent-blue-600"/>
-                                        <span className="font-bold">無特別狀況</span>
-                                    </label>
-                                    <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 border-slate-100 hover:border-blue-200 transition-all">
-                                        <input type="radio" checked={teacherForm.tq6_challenge === 'yes'} onChange={()=>setTeacherForm({...teacherForm, tq6_challenge: 'yes'})} className="w-5 h-5 accent-blue-600"/>
-                                        <span className="font-bold">有，請簡述說明：</span>
-                                    </label>
-                                    {teacherForm.tq6_challenge === 'yes' && (
-                                        <div className="pl-10 animate-fade-in">
-                                            <textarea className="w-full border-2 border-blue-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-blue-50/30" rows="3" value={teacherForm.tq6_desc||''} onChange={e=>setTeacherForm({...teacherForm, tq6_desc:e.target.value})}/>
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-
-                            {/* Q7 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（七） 親師溝通與三方協作</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold">關於該生的學習與適應狀況，目前您與家長溝通的情形及需要潛能班協助的部分：</p>
-                                <div className="space-y-3 pl-4">
-                                    {[
-                                        "溝通順暢，家長能配合班級常規與指導。",
-                                        "已反映狀況，但家長較難配合或無暇協助。",
-                                        "尚未與家長深入討論過此狀況。",
-                                        "希望潛能班協助與家長溝通的事項"
-                                    ].map(opt => (
-                                        <div key={opt}>
-                                            <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${teacherForm.tq7_communication === opt ? 'bg-blue-50 border-blue-500 text-blue-800' : 'border-slate-100 hover:border-blue-200 text-slate-600'}`}>
-                                                <input type="radio" checked={teacherForm.tq7_communication === opt} onChange={()=>setTeacherForm({...teacherForm, tq7_communication: opt})} className="w-5 h-5 accent-blue-600 mt-0.5"/>
-                                                <span className="font-bold">{opt}</span>
-                                            </label>
-                                            {opt === "希望潛能班協助與家長溝通的事項" && teacherForm.tq7_communication === "希望潛能班協助與家長溝通的事項" && (
-                                                <div className="pl-10 mt-2 animate-fade-in">
-                                                    <input type="text" className="w-full p-3 rounded-xl border border-blue-200 outline-none focus:border-blue-500 text-sm font-bold" placeholder="請說明需要協助溝通的事項..." value={teacherForm.tq7_other || ''} onChange={e => setTeacherForm({...teacherForm, tq7_other: e.target.value})} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Q8 */}
-                            <section>
-                                <h3 className="font-black mb-2 text-blue-800 text-xl border-l-4 border-blue-500 pl-3">（八） 其他補充與建議</h3>
-                                <p className="text-sm text-slate-500 mb-4 pl-4 font-bold">(例如：希望潛能班協助配合的特定獎懲行為約定、或是特殊交辦事項)</p>
-                                <div className="pl-4">
-                                    <textarea className="w-full border-2 border-slate-200 rounded-xl p-4 outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition-colors min-h-[100px]" value={teacherForm.tq8_comment||''} onChange={e=>setTeacherForm({...teacherForm, tq8_comment:e.target.value})}/>
-                                </div>
-                            </section>
-                            
-                            <div className="flex gap-4 pt-8 border-t-2 border-slate-100">
-                                <button onClick={() => { onSwitchRole('home'); }} className="px-8 py-4 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">暫存返回</button>
-                                <button onClick={() => submitFeedback('teacher')} className="flex-1 bg-blue-600 text-white rounded-xl font-black text-xl shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all">提交回饋表</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const StudentView = ({ students, selectedStudent, setSelectedStudent, isUserAuth, accessCode, setAccessCode, handleLogin, authError, studentForm, setStudentForm, submitFeedback, onSwitchRole, handleStudentCheck }) => {
-            const [fontSize, setFontSize] = useState('text-lg');
-            const { voices, speak, supported: ttsSupported } = useSpeechSynthesis();
-            const [selectedVoice, setSelectedVoice] = useState(null);
-            const [speechRate, setSpeechRate] = useState(1);
-
-            useEffect(() => {
-                if (voices.length > 0 && !selectedVoice) {
-                    const defaultVoice = voices.find(v => v.name.includes("Google") && v.lang.includes("zh")) || voices[0];
-                    setSelectedVoice(defaultVoice);
-                }
-            }, [voices]);
-
-            if (!selectedStudent || !isUserAuth) return (
-                <UnifiedLoginCard title="學生專區" iconName="smile" colorClass="bg-green-500 text-white" topBorderColor="border-green-500">
-                    {!selectedStudent ? (
-                        <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {students.map(s => (<button key={s.id} onClick={() => setSelectedStudent(s)} className="p-4 bg-slate-50 hover:bg-green-500 hover:text-white rounded-2xl font-black transition-all border border-slate-100 text-slate-700">{s.name}</button>))}
-                        </div>
-                    ) : (
-                        <div className="animate-fade-in">
-                            <div className="mb-6 font-black text-green-700 bg-green-50 py-2 rounded-xl border border-green-100">{selectedStudent.name}</div>
-                            <PasswordInput value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="輸入驗證碼" onEnter={handleLogin} themeColor="green" />
-                            {authError && <p className="text-red-500 text-sm mb-6 animate-bounce">{authError}</p>}
-                            <div className="flex gap-4">
-                                <button onClick={() => { setSelectedStudent(null); setAccessCode(''); }} className="flex-1 py-3 text-slate-400 font-black bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">重選</button>
-                                <button onClick={handleLogin} className="flex-1 bg-green-500 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-green-600 active:scale-95 transition-all">進入</button>
-                            </div>
-                        </div>
-                    )}
-                </UnifiedLoginCard>
-            );
-
-            return (
-                <div className={`student-theme ${fontSize} animate-fade-in pb-32`}>
-                    <div className="w-full flex justify-center py-4 bg-transparent">
-                        <div className="w-full max-w-4xl px-4 md:px-8">
-                            <div className="bg-white/95 border border-green-100 shadow-md px-4 py-3 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between">
-                                <div className="flex items-center gap-2 text-green-700 font-black text-base"><Icon name="accessibility" /> 輔助工具</div>
-                                <div className="flex flex-wrap gap-4 items-center justify-center w-full md:w-auto text-sm">
-                                    <div className="flex bg-slate-100 rounded-lg p-1">
-                                        {[{l:'小',v:'text-base'},{l:'中',v:'text-xl'},{l:'大',v:'text-2xl'}].map(s => (
-                                            <button key={s.v} onClick={() => setFontSize(s.v)} className={`px-3 py-1 rounded-md font-bold ${fontSize === s.v ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>A{s.l}</button>
-                                        ))}
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-                                        <span className="text-xs font-bold text-slate-400">語速</span>
-                                        <input 
-                                            type="range" 
-                                            min="0.5" 
-                                            max="2" 
-                                            step="0.25" 
-                                            value={speechRate} 
-                                            onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                                            className="w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                        <span className="text-xs w-8 text-center font-bold text-green-600">{speechRate}x</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <select className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 max-w-[120px]" onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value))}>
-                                            {voices.map(v => <option key={v.name} value={v.name}>{v.name.replace('Microsoft', '').replace('Google', '')}</option>)}
-                                        </select>
-                                        <button onClick={() => speak("這是朗讀測試。", selectedVoice, speechRate)} className="bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200 flex items-center gap-1 transition-colors"><Icon name="play" className="w-3 h-3"/> 試聽</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="max-w-4xl mx-auto p-4 md:p-8">
-                        <div className="bg-white rounded-[40px] shadow-xl overflow-hidden border-t-[12px] border-green-500 p-8 md:p-12 space-y-12">
-                            <h2 className="text-3xl font-black text-center text-green-700">自我評估調查表</h2>
-
-                            <section className="space-y-4">
-                                <div className="flex items-start gap-2">
-                                    <button onClick={()=>speak("權益告知：老師有告訴我並和我討論這一學期我的課程安排與協助", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                    <h3 className="font-black text-green-800">【權益告知】老師有告訴我並和我討論這一學期我的課程安排與協助</h3>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3 pl-10">
-                                    {["我知道，我同意", "我知道，我有其他想法", "我不知道，需要老師說明"].map(opt => (
-                                        <div key={opt} className="flex flex-col gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <label className={`flex-1 p-4 border-2 rounded-2xl cursor-pointer transition-all ${studentForm.rights_2 === opt ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-100 hover:border-green-200 text-slate-500'}`}>
-                                                    <input type="radio" className="hidden" name="rights_2" value={opt} checked={studentForm.rights_2 === opt} onChange={e=>setStudentForm({...studentForm, rights_2: e.target.value})} />
-                                                    <span className="font-black">{opt}</span>
-                                                </label>
-                                                <button onClick={()=>speak(opt, selectedVoice, speechRate)} className="text-green-400 hover:text-green-600 p-2 rounded-full hover:bg-green-100 transition-colors"><Icon name="volume-2" className="w-5 h-5"/></button>
-                                            </div>
-                                            {opt === "我知道，我有其他想法" && studentForm.rights_2 === "我知道，我有其他想法" && (
-                                                <div className="pl-4 animate-fade-in">
-                                                    <OtherInput placeholder="請寫下你的想法..." value={studentForm.rights_2_other || ''} onChange={e => setStudentForm({...studentForm, rights_2_other: e.target.value})} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                            
-                            <section className="space-y-4">
-                                <div className="flex items-start gap-2">
-                                    <button onClick={()=>speak("第一題，我覺得到潛能班上課，對自己幫助的程度？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                    <h3 className="font-black text-green-800">1. 我覺得到潛能班上課，對自己幫助的程度？</h3>
-                                </div>
-                                
-                                <LikertScale 
-                                    name="q1_level" 
-                                    value={studentForm.q1_level} 
-                                    onChange={(v) => setStudentForm({ ...studentForm, q1_level: v })}
-                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
-                                    options={[
-                                        {val: 5, emoji: '🤩', label: '非常有幫助'},
-                                        {val: 4, emoji: '😊', label: '有幫助'},
-                                        {val: 3, emoji: '😐', label: '普通'},
-                                        {val: 2, emoji: '😕', label: '沒什麼幫助'},
-                                        {val: 1, emoji: '😫', label: '完全沒幫助'}
-                                    ]}
-                                />
-
-                                {(studentForm.q1_level == 5 || studentForm.q1_level == 4) && (
-                                    <div className="grid grid-cols-1 gap-3 pl-10 mt-4 border-l-4 border-green-100 animate-fade-in">
-                                        <p className="text-sm text-slate-400 font-bold mb-2">覺得有幫助的地方 (可複選)：</p>
-                                        {STD_Q1_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q1.includes(opt)} onChange={() => handleStudentCheck('q1', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <div className="block">
-                                            <StudentCheckbox label="其他" checked={studentForm.q1.includes('其他')} onChange={() => handleStudentCheck('q1', '其他')} />
-                                            {(studentForm.q1||[]).includes('其他') && <OtherInput placeholder="還有什麼幫助..." value={studentForm.q1_other || ''} onChange={e => setStudentForm({...studentForm, q1_other: e.target.value})} />}
-                                        </div>
-                                    </div>
-                                )}
-                                {studentForm.q1_level == 3 && <div className="pl-10"><OtherInput placeholder="有什麼想補充的嗎？" value={studentForm.q1_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q1_neutral_text: e.target.value})} /></div>}
-                                {(studentForm.q1_level === 2 || studentForm.q1_level === 1) && <div className="pl-10"><OtherInput placeholder="為什麼覺得沒什麼幫助呢？" value={studentForm.q1_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q1_dislike_text: e.target.value})} /></div>}
-                            </section>
-
-                            <section className="space-y-4">
-                                <div className="flex items-start gap-2">
-                                    <button onClick={()=>speak("第二題，選出這學期我覺得有學到東西又有趣的課，可以選好多個", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                    <h3 className="font-black text-green-800">2. 選出這學期我覺得有學到東西又有趣的課<span className="text-sm font-normal text-slate-500 block mt-1">(可複選)</span></h3>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-10">
-                                    {STD_Q2_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q2.includes(opt)} onChange={() => handleStudentCheck('q2', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                    <div className="block sm:col-span-2">
-                                        <StudentCheckbox label="其他" checked={studentForm.q2.includes('其他')} onChange={() => handleStudentCheck('q2', '其他')} />
-                                        {studentForm.q2.includes('其他') && <OtherInput placeholder="還有什麼有趣的課..." value={studentForm.q2_other || ''} onChange={e => setStudentForm({...studentForm, q2_other: e.target.value})} />}
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section className="space-y-4 bg-green-50/50 p-6 rounded-3xl border border-green-100">
-                                <div className="flex items-start gap-2">
-                                    <button onClick={()=>speak("第三題，我喜歡到潛能班上課嗎？", selectedVoice, speechRate)} className="text-green-500 hover:scale-110 transition-transform mt-1"><Icon name="volume-2" className="w-8 h-8"/></button>
-                                    <h3 className="font-black text-green-800">3. 我喜歡到潛能班上課嗎？</h3>
-                                </div>
-                                
-                                <LikertScale 
-                                    name="q3_level" 
-                                    value={studentForm.q3_level} 
-                                    onChange={(v) => setStudentForm({ ...studentForm, q3_level: v })}
-                                    speak={speak} selectedVoice={selectedVoice} speechRate={speechRate}
-                                    options={[
-                                        {val: 5, emoji: '🥰', label: '超級喜歡'},
-                                        {val: 4, emoji: '😀', label: '喜歡'},
-                                        {val: 3, emoji: '🙂', label: '還好'},
-                                        {val: 2, emoji: '☹️', label: '不太喜歡'},
-                                        {val: 1, emoji: '😠', label: '很不喜歡'}
-                                    ]}
-                                />
-
-                                {(studentForm.q3_level == 5 || studentForm.q3_level == 4) && (
-                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-green-300">
-                                        <div className="flex items-center gap-2 mb-3"><h4 className="font-bold text-green-700 text-base">✨ 我喜歡到潛能班上課的原因：</h4></div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {STD_Q3_LIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_like.includes(opt)} onChange={() => handleStudentCheck('q3_like', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                            <div className="block sm:col-span-2"><StudentCheckbox label="其他" checked={studentForm.q3_like.includes('其他')} onChange={() => handleStudentCheck('q3_like', '其他')} />{(studentForm.q3_like||[]).includes('其他') && <OtherInput placeholder="還有什麼原因..." value={studentForm.q3_like_other || ''} onChange={e => setStudentForm({...studentForm, q3_like_other: e.target.value})} />}</div>
-                                        </div>
-                                    </div>
-                                )}
-                                {(studentForm.q3_level == 3) && (
-                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-amber-300">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <h4 className="font-bold text-amber-600 text-base">🤔 有什麼想補充說明的嗎？</h4>
-                                        </div>
-                                        <div className="relative">
-                                            <textarea className="w-full p-4 rounded-xl border-2 border-slate-200 focus:border-amber-400 outline-none bg-white min-h-[100px]" placeholder="請寫下來..." value={studentForm.q3_neutral_text || ''} onChange={e => setStudentForm({...studentForm, q3_neutral_text: e.target.value})} />
-                                            <SpeechInputButton onTranscript={(txt) => setStudentForm(p => ({...p, q3_neutral_text: (p.q3_neutral_text||'') + txt}))} />
-                                        </div>
-                                    </div>
-                                )}
-                                {(studentForm.q3_level == 2 || studentForm.q3_level == 1) && (
-                                    <div className="mt-6 pl-10 animate-fade-in border-l-4 border-red-100 animate-fade-in">
-                                        <p className="text-sm font-bold text-red-400">不喜歡到潛能班上課的原因 (可複選)：</p>
-                                        {STD_Q3_DISLIKE_OPTS.map(opt => <StudentCheckbox key={opt} label={opt} checked={studentForm.q3_dislike.includes(opt)} onChange={() => handleStudentCheck('q3_dislike', opt)} onSpeak={() => speak(opt, selectedVoice, speechRate)} />)}
-                                        <StudentCheckbox label="其他" checked={studentForm.q3_dislike.includes('其他')} onChange={() => handleStudentCheck('q3_dislike', '其他')} />
-                                        {studentForm.q3_dislike.includes('其他') && <OtherInput placeholder="請寫下原因..." value={studentForm.q3_dislike_text || ''} onChange={e => setStudentForm({...studentForm, q3_dislike_text: e.target.value})} />}
-                                    </div>
-                                )}
-                            </section>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2 relative">
-                                    <label className="font-black text-green-700 flex items-center gap-2">
-                                        <button onClick={()=>speak("我想對自己說的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>
-                                        📌 我想對自己說的話：
-                                    </label>
-                                    <div className="relative">
-                                        <textarea 
-                                            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" 
-                                            placeholder="例如：這學期有努力完成作業，我很棒!／下學期再繼續努力!"
-                                            value={studentForm.self_encourage} 
-                                            onChange={e => setStudentForm({...studentForm, self_encourage: e.target.value})} 
-                                        />
-                                        <SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, self_encourage: p.self_encourage + t}))} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2 relative">
-                                    <label className="font-black text-green-700 flex items-center gap-2">
-                                        <button onClick={()=>speak("下學期，我希望自己可以", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>
-                                        📌 下學期，我希望自己可以：
-                                    </label>
-                                    <div className="relative">
-                                        <textarea 
-                                            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" 
-                                            value={studentForm.next_semester_hope} 
-                                            onChange={e => setStudentForm({...studentForm, next_semester_hope: e.target.value})} 
-                                        />
-                                        <SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, next_semester_hope: p.next_semester_hope + t}))} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2 relative md:col-span-2">
-                                    <label className="font-black text-green-700 flex items-center gap-2">
-                                        <button onClick={()=>speak("想給潛能班老師的話", selectedVoice, speechRate)}><Icon name="volume-2" className="w-5 h-5"/></button>
-                                        📌 想給潛能班老師的話：
-                                    </label>
-                                    <div className="relative">
-                                        <textarea 
-                                            className="w-full p-4 rounded-xl border-2 border-slate-100 focus:border-green-500 outline-none bg-slate-50 min-h-[120px]" 
-                                            value={studentForm.teacher_words} 
-                                            onChange={e => setStudentForm({...studentForm, teacher_words: e.target.value})} 
-                                        />
-                                        <SpeechInputButton onTranscript={(t) => setStudentForm(p => ({...p, teacher_words: p.teacher_words + t}))} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-6 flex gap-4 text-base">
-                                <button onClick={() => { onSwitchRole('home'); }} className="px-6 py-4 rounded-xl font-bold text-slate-400 hover:bg-slate-50">暫時離開</button>
-                                <button onClick={() => submitFeedback('student')} className="flex-1 bg-green-500 text-white rounded-xl font-black text-xl shadow-xl shadow-green-100 hover:bg-green-600 transition-colors">完成提交</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="w-full text-center py-8 text-slate-300 text-xs no-print font-bold">安東潛能班</div>
-                </div>
-            );
-        };
-
-        const App = () => {
-            const [user, setUser] = useState(null);
-            const [role, setRole] = useState('home'); 
-            const [students, setStudents] = useState([]);
-            const [selectedStudent, setSelectedStudent] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [notification, setNotification] = useState(null);
-
-            const [adminPwd, setAdminPwd] = useState('');
-            const [isAdminAuth, setIsAdminAuth] = useState(false);
-            const [accessCode, setAccessCode] = useState('');
-            const [isUserAuth, setIsUserAuth] = useState(false);
-            const [authError, setAuthError] = useState('');
-
-            const [teacherForm, setTeacherForm] = useState({});
-            const [studentForm, setStudentForm] = useState({
-                q1: [], q1_other: '', q1_level: null, q1_neutral_text: '', q1_dislike_text: '',
-                q2: [], q2_other: '',
-                q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '',
-                rights_2: '', rights_2_other: '', 
-                self_encourage: '', next_semester_hope: '', teacher_words: ''
-            });
-
-            useEffect(() => {
-                const init = async () => {
-                    if (!window.IEP_FB) return;
-                    const { auth, db, appId, collection, onSnapshot, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.IEP_FB;
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                        else await signInAnonymously(auth);
-                    } catch (e) { console.error("Auth Error:", e); }
-                    
-                    onAuthStateChanged(auth, (u) => {
-                        setUser(u);
-                        if (u) {
-                            const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), (snap) => {
-                                const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                                list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-                                setStudents(list); setLoading(false);
-                            }, (error) => { console.error("Snapshot Error:", error); setLoading(false); });
-                            return () => unsub();
-                        } else setLoading(false);
-                    });
-                };
-                init();
-            }, []);
-
-            useEffect(() => {
-                if (role === 'teacher' && selectedStudent) {
-                    const draftKey = `iep_teacher_draft_${selectedStudent.id}`;
-                    const savedDraft = localStorage.getItem(draftKey);
-                    if (selectedStudent.teacherFeedback) setTeacherForm(selectedStudent.teacherFeedback);
-                    else if (savedDraft) try { setTeacherForm(JSON.parse(savedDraft)); } catch(e){}
-                    else setTeacherForm({});
-                }
-            }, [role, selectedStudent]);
-
-            useEffect(() => {
-                if (role === 'teacher' && selectedStudent && Object.keys(teacherForm).length > 0) {
-                    localStorage.setItem(`iep_teacher_draft_${selectedStudent.id}`, JSON.stringify(teacherForm));
-                }
-            }, [teacherForm]);
-
-            const clearDraft = (id) => localStorage.removeItem(`iep_teacher_draft_${id}`);
-            const showToast = (msg, type = 'success') => setNotification({ message: msg, type });
-
-            const handleCreateStudent = async (name, code, manager) => {
-                if (!name || !code) return;
-                const { db, appId, addDoc, collection } = window.IEP_FB;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), { name, accessCode: code, manager, createdAt: new Date().toISOString() });
-            };
-
-            const handleDeleteStudent = async (id) => {
-                const { db, appId, deleteDoc, doc } = window.IEP_FB;
-                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id)); showToast("刪除成功"); } 
-                catch (error) { console.error("Delete Error:", error); showToast("刪除失敗", 'error'); }
-            };
-
-            const handleClearAllFeedbacks = async () => {
-                const { db, appId, updateDoc, doc } = window.IEP_FB;
+                const { auth, db, appId, collection, onSnapshot, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = firebase;
                 try {
-                    const promises = students.map(s => {
-                        const ref = doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, s.id);
-                        clearDraft(s.id);
-                        return updateDoc(ref, { teacherFeedback: null, studentFeedback: null });
-                    });
-                    await Promise.all(promises);
-                    showToast("全體期末回饋與紀錄已重置歸零！");
-                } catch (error) { console.error("Clear Error:", error); showToast("重置失敗", "error"); }
-            };
-
-            const handleUpdateStudent = async (id, data) => {
-                const { db, appId, updateDoc, doc } = window.IEP_FB;
-                try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id), data); } 
-                catch (e) { console.error("Update Error", e); }
-            };
-
-            const handleLogin = () => {
-                setAuthError('');
-                if (role === 'sped' || role === 'sped_login') {
-                    if (adminPwd === 'tset') { setIsAdminAuth(true); setRole('sped'); } 
-                    else setAuthError('密碼錯誤');
-                } else {
-                    if (selectedStudent && accessCode === selectedStudent.accessCode) {
-                        setIsUserAuth(true);
-                        if(role === 'student' && selectedStudent.studentFeedback) setStudentForm({ ...studentForm, ...selectedStudent.studentFeedback });
-                    } else setAuthError('驗證碼錯誤');
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    }
+                    else {
+                        await signInAnonymously(auth);
+                    }
                 }
-            };
-
-            const submitFeedback = async (type) => {
-                if (!selectedStudent) return;
-                const { db, appId, updateDoc, doc } = window.IEP_FB;
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, selectedStudent.id);
-                if (type === 'teacher') {
-                    await updateDoc(ref, { teacherFeedback: { ...teacherForm, submittedAt: new Date().toISOString() } });
-                    clearDraft(selectedStudent.id); showToast("導師回饋已提交");
-                } else {
-                    await updateDoc(ref, { studentFeedback: { ...studentForm, submittedAt: new Date().toISOString() } });
-                    showToast("學生回饋已提交");
+                catch (authError) {
+                    console.error("Auth Error:", authError);
                 }
-                setRole('home'); resetState();
-            };
-
-            const resetState = () => {
-                setIsAdminAuth(false); setIsUserAuth(false); setSelectedStudent(null);
-                setAccessCode(''); setAdminPwd(''); setTeacherForm({}); 
-                setStudentForm({ q1: [], q1_other: '', q1_level: null, q2: [], q2_other: '', q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '', rights_2: '', rights_2_other: '', self_encourage: '', next_semester_hope: '', teacher_words: '' });
-                setAuthError('');
-            };
-
-            const handleStudentCheck = (field, value) => {
-                const current = studentForm[field] || [];
-                const next = current.includes(value) ? current.filter(x => x !== value) : [...current, value];
-                setStudentForm({ ...studentForm, [field]: next });
-            };
-
-            const handleRoleSwitch = (newRole) => {
-                if (newRole === 'home') { resetState(); setRole('home'); return; }
-                setAuthError(''); setAccessCode(''); setAdminPwd(''); setIsUserAuth(false); setSelectedStudent(null);
-                if (newRole === 'sped' && !isAdminAuth) setRole('sped_login');
-                else if (newRole === 'sped' && isAdminAuth) setRole('sped');
-                else setRole(newRole);
-            };
-
-            if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-400 font-black">系統載入中...</div>;
-
-            return (
-                <div className="min-h-screen pb-20 font-black">
-                    <Navbar onSwitchRole={handleRoleSwitch} currentRole={role} />
-                    {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-                    <main className="max-w-[1400px] mx-auto p-4">
-                        {role === 'home' && <LandingPage onSwitchRole={handleRoleSwitch} />}
-                        {role === 'sped_login' && <SpedLogin adminPwd={adminPwd} setAdminPwd={setAdminPwd} handleLogin={handleLogin} authError={authError} />}
-                        {role === 'sped' && <SpedDashboard students={students} handleCreateStudent={handleCreateStudent} handleDeleteStudent={handleDeleteStudent} handleUpdateStudent={handleUpdateStudent} handleClearAllFeedbacks={handleClearAllFeedbacks} showToast={showToast} />}
-                        {role === 'teacher' && <TeacherView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} teacherForm={teacherForm} setTeacherForm={setTeacherForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} />}
-                        {role === 'student' && <StudentView students={students} selectedStudent={selectedStudent} setSelectedStudent={setSelectedStudent} isUserAuth={isUserAuth} accessCode={accessCode} setAccessCode={setAccessCode} handleLogin={handleLogin} authError={authError} studentForm={studentForm} setStudentForm={setStudentForm} submitFeedback={submitFeedback} onSwitchRole={handleRoleSwitch} handleStudentCheck={handleStudentCheck} />}
-                    </main>
-                </div>
-            );
+                if (cancelled)
+                    return;
+                unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+                    if (cancelled)
+                        return;
+                    setUser(u);
+                    if (unsubscribeSnapshot) {
+                        unsubscribeSnapshot();
+                        unsubscribeSnapshot = null;
+                    }
+                    if (u) {
+                        unsubscribeSnapshot = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), (snap) => {
+                            if (cancelled)
+                                return;
+                            const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+                            setStudents(list);
+                            setLoading(false);
+                        }, (snapshotError) => {
+                            console.error("Snapshot Error:", snapshotError);
+                            if (!cancelled) {
+                                setLoading(false);
+                                setNotification({ message: '資料庫連線失敗，請檢查 Firebase 設定', type: 'error' });
+                            }
+                        });
+                    }
+                    else {
+                        setLoading(false);
+                    }
+                });
+            }
+            catch (error) {
+                console.error('System Init Error:', error);
+                if (!cancelled) {
+                    setLoading(false);
+                    setNotification({ message: '系統初始化失敗，請檢查網路或 Firebase 設定', type: 'error' });
+                }
+            }
         };
-
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
-        root.render(<App />);
+        init();
+        return () => {
+            cancelled = true;
+            if (unsubscribeSnapshot)
+                unsubscribeSnapshot();
+            if (unsubscribeAuth)
+                unsubscribeAuth();
+        };
+    }, []);
+    useEffect(() => {
+        if (role === 'teacher' && selectedStudent) {
+            const draftKey = `iep_teacher_draft_${selectedStudent.id}`;
+            const savedDraft = localStorage.getItem(draftKey);
+            if (selectedStudent.teacherFeedback)
+                setTeacherForm(selectedStudent.teacherFeedback);
+            else if (savedDraft)
+                try {
+                    setTeacherForm(JSON.parse(savedDraft));
+                }
+                catch (e) { }
+            else
+                setTeacherForm({});
+        }
+    }, [role, selectedStudent]);
+    useEffect(() => {
+        if (role === 'teacher' && selectedStudent && Object.keys(teacherForm).length > 0) {
+            localStorage.setItem(`iep_teacher_draft_${selectedStudent.id}`, JSON.stringify(teacherForm));
+        }
+    }, [teacherForm]);
+    const clearDraft = (id) => localStorage.removeItem(`iep_teacher_draft_${id}`);
+    const showToast = (msg, type = 'success') => setNotification({ message: msg, type });
+    const handleCreateStudent = async (name, code, manager) => {
+        if (!name || !code)
+            return;
+        const { db, appId, addDoc, collection } = window.IEP_FB;
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION), { name, accessCode: code, manager, createdAt: new Date().toISOString() });
+    };
+    const handleDeleteStudent = async (id) => {
+        const { db, appId, deleteDoc, doc } = window.IEP_FB;
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id));
+            showToast("刪除成功");
+        }
+        catch (error) {
+            console.error("Delete Error:", error);
+            showToast("刪除失敗", 'error');
+        }
+    };
+    const handleClearAllFeedbacks = async () => {
+        const { db, appId, updateDoc, doc } = window.IEP_FB;
+        try {
+            const promises = students.map(s => {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, s.id);
+                clearDraft(s.id);
+                return updateDoc(ref, { teacherFeedback: null, studentFeedback: null });
+            });
+            await Promise.all(promises);
+            showToast("全體期末回饋與紀錄已重置歸零！");
+        }
+        catch (error) {
+            console.error("Clear Error:", error);
+            showToast("重置失敗", "error");
+        }
+    };
+    const handleUpdateStudent = async (id, data) => {
+        const { db, appId, updateDoc, doc } = window.IEP_FB;
+        try {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, id), data);
+        }
+        catch (e) {
+            console.error("Update Error", e);
+        }
+    };
+    const handleLogin = () => {
+        setAuthError('');
+        if (role === 'sped' || role === 'sped_login') {
+            if (adminPwd === 'tset') {
+                setIsAdminAuth(true);
+                setRole('sped');
+            }
+            else
+                setAuthError('密碼錯誤');
+        }
+        else {
+            if (selectedStudent && accessCode === selectedStudent.accessCode) {
+                setIsUserAuth(true);
+                if (role === 'student' && selectedStudent.studentFeedback)
+                    setStudentForm({ ...studentForm, ...selectedStudent.studentFeedback });
+            }
+            else
+                setAuthError('驗證碼錯誤');
+        }
+    };
+    const submitFeedback = async (type) => {
+        if (!selectedStudent)
+            return;
+        const { db, appId, updateDoc, doc } = window.IEP_FB;
+        const ref = doc(db, 'artifacts', appId, 'public', 'data', DATA_COLLECTION, selectedStudent.id);
+        if (type === 'teacher') {
+            await updateDoc(ref, { teacherFeedback: { ...teacherForm, submittedAt: new Date().toISOString() } });
+            clearDraft(selectedStudent.id);
+            showToast("導師回饋已提交");
+        }
+        else {
+            await updateDoc(ref, { studentFeedback: { ...studentForm, submittedAt: new Date().toISOString() } });
+            showToast("學生回饋已提交");
+        }
+        setRole('home');
+        resetState();
+    };
+    const resetState = () => {
+        setIsAdminAuth(false);
+        setIsUserAuth(false);
+        setSelectedStudent(null);
+        setAccessCode('');
+        setAdminPwd('');
+        setTeacherForm({});
+        setStudentForm({ q1: [], q1_other: '', q1_level: null, q2: [], q2_other: '', q3: '', q3_level: null, q3_like: [], q3_like_other: '', q3_neutral_text: '', q3_dislike: [], q3_dislike_text: '', rights_2: '', rights_2_other: '', self_encourage: '', next_semester_hope: '', teacher_words: '' });
+        setAuthError('');
+    };
+    const handleStudentCheck = (field, value) => {
+        const current = studentForm[field] || [];
+        const next = current.includes(value) ? current.filter(x => x !== value) : [...current, value];
+        setStudentForm({ ...studentForm, [field]: next });
+    };
+    const handleRoleSwitch = (newRole) => {
+        if (newRole === 'home') {
+            resetState();
+            setRole('home');
+            return;
+        }
+        setAuthError('');
+        setAccessCode('');
+        setAdminPwd('');
+        setIsUserAuth(false);
+        setSelectedStudent(null);
+        if (newRole === 'sped' && !isAdminAuth)
+            setRole('sped_login');
+        else if (newRole === 'sped' && isAdminAuth)
+            setRole('sped');
+        else
+            setRole(newRole);
+    };
+    if (loading)
+        return React.createElement("div", { className: "min-h-screen flex items-center justify-center text-slate-400 font-black" }, "\u7CFB\u7D71\u8F09\u5165\u4E2D...");
+    return (React.createElement("div", { className: "min-h-screen pb-20 font-black" },
+        React.createElement(Navbar, { onSwitchRole: handleRoleSwitch, currentRole: role }),
+        notification && React.createElement(Notification, { message: notification.message, type: notification.type, onClose: () => setNotification(null) }),
+        React.createElement("main", { className: "max-w-[1400px] mx-auto p-4" },
+            role === 'home' && React.createElement(LandingPage, { onSwitchRole: handleRoleSwitch }),
+            role === 'sped_login' && React.createElement(SpedLogin, { adminPwd: adminPwd, setAdminPwd: setAdminPwd, handleLogin: handleLogin, authError: authError }),
+            role === 'sped' && React.createElement(SpedDashboard, { students: students, handleCreateStudent: handleCreateStudent, handleDeleteStudent: handleDeleteStudent, handleUpdateStudent: handleUpdateStudent, handleClearAllFeedbacks: handleClearAllFeedbacks, showToast: showToast }),
+            role === 'teacher' && React.createElement(TeacherView, { students: students, selectedStudent: selectedStudent, setSelectedStudent: setSelectedStudent, isUserAuth: isUserAuth, accessCode: accessCode, setAccessCode: setAccessCode, handleLogin: handleLogin, authError: authError, teacherForm: teacherForm, setTeacherForm: setTeacherForm, submitFeedback: submitFeedback, onSwitchRole: handleRoleSwitch }),
+            role === 'student' && React.createElement(StudentView, { students: students, selectedStudent: selectedStudent, setSelectedStudent: setSelectedStudent, isUserAuth: isUserAuth, accessCode: accessCode, setAccessCode: setAccessCode, handleLogin: handleLogin, authError: authError, studentForm: studentForm, setStudentForm: setStudentForm, submitFeedback: submitFeedback, onSwitchRole: handleRoleSwitch, handleStudentCheck: handleStudentCheck }))));
+};
+class AppErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { error };
+    }
+    componentDidCatch(error, info) {
+        console.error('React Render Error:', error, info);
+    }
+    render() {
+        var _a;
+        if (this.state.error) {
+            return (React.createElement("div", { className: "min-h-screen flex items-center justify-center p-6 bg-rose-50" },
+                React.createElement("div", { className: "max-w-2xl w-full bg-white border-2 border-rose-200 rounded-3xl p-8 text-rose-800 shadow-xl" },
+                    React.createElement("h1", { className: "text-2xl font-black mb-4" }, "\u7CFB\u7D71\u756B\u9762\u8F09\u5165\u5931\u6557"),
+                    React.createElement("p", { className: "font-bold leading-relaxed" }, "\u8ACB\u91CD\u65B0\u6574\u7406\u9801\u9762\uFF0C\u4E26\u78BA\u8A8D\u7DB2\u8DEF\u9023\u7DDA\u6B63\u5E38\u3002\u82E5\u4ECD\u7121\u6CD5\u958B\u555F\uFF0C\u8ACB\u5C07\u4E0B\u65B9\u932F\u8AA4\u8A0A\u606F\u63D0\u4F9B\u7D66\u7DAD\u8B77\u4EBA\u54E1\u3002"),
+                    React.createElement("pre", { className: "mt-4 p-4 bg-rose-50 rounded-xl whitespace-pre-wrap break-words text-sm" }, String(((_a = this.state.error) === null || _a === void 0 ? void 0 : _a.message) || this.state.error)))));
+        }
+        return this.props.children;
+    }
+}
+try {
+    if (!window.React || !window.ReactDOM) {
+        throw new Error('React 或 ReactDOM 載入失敗');
+    }
+    const container = document.getElementById('root');
+    if (!container)
+        throw new Error('找不到應用程式容器 #root');
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(AppErrorBoundary, null,
+        React.createElement(App, null)));
+    window.__IEP_APP_STARTED__ = true;
+}
+catch (startupError) {
+    if (window.showStartupError)
+        window.showStartupError(startupError);
+    else
+        console.error(startupError);
+}
     </script>
 </body>
 </html>
